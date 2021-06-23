@@ -8,7 +8,18 @@ html, body {
   font-family: 'Roboto', sans-serif;
 }
 
-#output {
-  padding: 20px;
-  text-align: center;
+#container {
+  box-shadow: 0 0 10px #000a;
+}
+
+svg {
+  outline: 1px solid #aaa;
+}
+
+svg path {
+  fill: #272b36;
+  stroke: #3da1ff;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }

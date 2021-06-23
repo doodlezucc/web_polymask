@@ -4,7 +4,12 @@ class Polygon {
   final List<Point<int>> _points;
   final bool positive;
 
-  Polygon({List<Point<int>> points, this.positive}) : _points = points ?? [];
+  Iterable<Point<int>> get points => _points;
+
+  Polygon({List<Point<int>> points, this.positive = true})
+      : _points = points ?? [];
+
+  void addPoint(Point<int> point) => _points.add(point);
 
   Rectangle<int> getBoundingBox() {
     var p1 = _points.first;
