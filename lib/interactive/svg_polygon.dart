@@ -6,6 +6,8 @@ import 'package:web_polygons/polygon.dart';
 import 'package:web_polygons/polygon_canvas.dart';
 
 class SvgPolygon extends Polygon {
+  static const minDistanceSquared = 10;
+
   final PolygonCanvas canvas;
   final svg.PathElement path;
   Point<int> extraPoint;
@@ -19,8 +21,11 @@ class SvgPolygon extends Polygon {
 
   @override
   void addPoint(Point<int> point) {
-    super.addPoint(point);
-    refreshSvg();
+    if (points.isEmpty ||
+        point.squaredDistanceTo(points.last) > minDistanceSquared) {
+      super.addPoint(point);
+      refreshSvg();
+    }
   }
 
   String _toData() {
@@ -32,6 +37,12 @@ class SvgPolygon extends Polygon {
     for (var p in points) {
       s += ' L' + writePoint(p);
     }
+
+    if (extraPoint != null) {
+      s += ' L' + writePoint(extraPoint);
+    }
+
+    s += ' L' + writePoint(points.first);
 
     return s;
   }
