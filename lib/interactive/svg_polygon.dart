@@ -10,7 +10,6 @@ class SvgPolygon extends Polygon {
 
   final PolygonCanvas canvas;
   final svg.PathElement path;
-  Point<int> extraPoint;
 
   SvgPolygon(this.canvas, {List<Point<int>> points, bool positive = true})
       : path = svg.PathElement(),
@@ -28,7 +27,11 @@ class SvgPolygon extends Polygon {
     }
   }
 
-  String _toData() {
+  void dispose() {
+    path.remove();
+  }
+
+  String _toData(Point<int> extraPoint) {
     if (points.isEmpty) return '';
 
     String writePoint(Point<int> p) => ' ${p.x} ${p.y}';
@@ -47,5 +50,6 @@ class SvgPolygon extends Polygon {
     return s;
   }
 
-  void refreshSvg() => path.setAttribute('d', _toData());
+  void refreshSvg([Point<int> extraPoint]) =>
+      path.setAttribute('d', _toData(extraPoint));
 }
