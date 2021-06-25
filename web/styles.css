@@ -9,12 +9,17 @@ body {
   margin: 0;
   padding: 20px;
   box-sizing: border-box;
+  font-family: 'Roboto';
+}
+
+h1 {
+  margin: 0 0 10px 0;
 }
 
 #container {
   position: relative;
   display: inline-flex;
-  box-shadow: 0 0 10px #0006;
+  box-shadow: 0 0 10px #0009;
 }
 
 .barrier {
