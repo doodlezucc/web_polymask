@@ -1,4 +1,4 @@
-import 'package:web_polygons/polygon.dart';
+import 'package:web_polymask/polygon.dart';
 
 class OfflinePolygonCanvas {
   final List<Polygon> _polygons = [];

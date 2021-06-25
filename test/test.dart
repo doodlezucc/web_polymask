@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:test/test.dart';
-import 'package:web_polygons/polygon.dart';
+import 'package:web_polymask/polygon.dart';
 
 void main() {
   group('Polygon Calculus', () {

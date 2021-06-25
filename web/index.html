@@ -14,7 +14,30 @@
 </head>
 
 <body>
-  <div id="container"></div>
+  <div id="container">
+    <img
+      src="https://mk0a2minutetabl7hq7i.kinstacdn.com/wp-content/uploads/2020/03/Dungeon-Jail-Prison-Battle-Map-Banner-1024x454.jpg">
+
+    <svg>
+      <defs>
+        <pattern id="pattern" width="21" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45 50 50)">
+          <line stroke="#fb88" stroke-width="20px" y2="10" />
+          <animateTransform attributeType="xml" attributeName="patternTransform" type="translate" from="0" to="21"
+            dur="3s" repeatCount="indefinite" additive="sum" />
+        </pattern>
+
+        <filter id="outline">
+          <feMorphology operator="dilate" radius="2" in="SourceGraphic" result="THICKNESS" />
+          <feComposite operator="out" in="THICKNESS" in2="SourceGraphic"></feComposite>
+        </filter>
+      </defs>
+
+      <g filter="url(#outline)">
+        <rect class="barrier" width="100%" height="100%" fill="#fb8" />
+      </g>
+      <rect class="barrier" width="100%" height="100%" fill="url(#pattern)" />
+    </svg>
+  </div>
 </body>
 
 </html>

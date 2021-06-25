@@ -2,20 +2,30 @@ import 'dart:html';
 import 'dart:math';
 import 'dart:svg' as svg;
 
-import 'package:web_polygons/polygon.dart';
-import 'package:web_polygons/polygon_canvas.dart';
+import 'package:web_polymask/polygon.dart';
+import 'package:web_polymask/polygon_canvas.dart';
 
 class SvgPolygon extends Polygon {
   static const minDistanceSquared = 10;
 
   final PolygonCanvas canvas;
-  final svg.PathElement path;
+  final svg.PolygonElement el;
 
-  SvgPolygon(this.canvas, {List<Point<int>> points, bool positive = true})
-      : path = svg.PathElement(),
+  SvgPolygon(
+    this.canvas, {
+    List<Point<int>> points,
+    bool positive = true,
+    bool instantClip = true,
+  })  : el = svg.PolygonElement(),
         super(points: points, positive: positive) {
     refreshSvg();
-    canvas.root.append(path);
+
+    if (instantClip) finish();
+
+    if (!positive) {
+      el.classes.add('polyminus');
+    }
+    canvas.clipPath.append(el);
   }
 
   @override
@@ -27,29 +37,31 @@ class SvgPolygon extends Polygon {
     }
   }
 
+  void finish() {
+    el.classes.add('polyclip');
+  }
+
   void dispose() {
-    path.remove();
+    el.remove();
   }
 
   String _toData(Point<int> extraPoint) {
     if (points.isEmpty) return '';
 
-    String writePoint(Point<int> p) => ' ${p.x} ${p.y}';
+    String writePoint(Point<int> p) => '${p.x},${p.y}';
 
-    var s = 'M' + writePoint(points.first);
-    for (var p in points) {
-      s += ' L' + writePoint(p);
+    var s = writePoint(points.first);
+    for (var p in points.skip(1)) {
+      s += ' ' + writePoint(p);
     }
 
     if (extraPoint != null) {
-      s += ' L' + writePoint(extraPoint);
+      s += ' ' + writePoint(extraPoint);
     }
-
-    s += ' L' + writePoint(points.first);
 
     return s;
   }
 
   void refreshSvg([Point<int> extraPoint]) =>
-      path.setAttribute('d', _toData(extraPoint));
+      el.setAttribute('points', _toData(extraPoint));
 }

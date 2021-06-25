@@ -3,27 +3,34 @@ import 'dart:html';
 import 'dart:math';
 import 'dart:svg' as svg;
 
-import 'package:web_polygons/offline_canvas.dart';
-import 'package:web_polygons/point_convert.dart';
-import 'package:web_polygons/polygon.dart';
+import 'package:web_polymask/offline_canvas.dart';
+import 'package:web_polymask/point_convert.dart';
+import 'package:web_polymask/polygon.dart';
 
 import 'interactive/svg_polygon.dart';
 
 class PolygonCanvas extends OfflinePolygonCanvas {
-  final HtmlElement _container;
   final svg.SvgSvgElement root;
+  final svg.GElement polygonRoot;
+  final svg.ClipPathElement clipPath;
   bool captureInput;
 
   SvgPolygon activePolygon;
 
-  PolygonCanvas(HtmlElement container, {this.captureInput = true})
-      : _container = container,
-        root = svg.SvgSvgElement()
-          ..setAttribute('width', '100%')
-          ..setAttribute('height', '100%') {
+  PolygonCanvas(this.root, {this.captureInput = true})
+      : polygonRoot = svg.GElement(),
+        clipPath = svg.ClipPathElement() {
     _initKeyListener();
     _initCursorControls();
-    _container.append(root);
+
+    var polyrootId = 'polyroot';
+    root
+      ..setAttribute('width', '100%')
+      ..setAttribute('height', '100%')
+      ..append(clipPath
+        ..id = 'polyclip'
+        ..append(svg.UseElement()..href.baseVal = '#$polyrootId'))
+      ..append(polygonRoot..id = polyrootId);
   }
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
@@ -84,13 +91,18 @@ class PolygonCanvas extends OfflinePolygonCanvas {
 
         if (createNew) {
           // Start new polygon
-          activePolygon = SvgPolygon(this, points: [p]);
+          activePolygon = SvgPolygon(
+            this,
+            points: [p],
+            positive: !(ev as dynamic).shiftKey,
+          );
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
             activePolygon.addPoint(point);
             click = false;
           });
         } else {
+          // Add single point to active polygon
           activePolygon.addPoint(p);
         }
 
@@ -116,13 +128,13 @@ class PolygonCanvas extends OfflinePolygonCanvas {
     }
 
     listenToCursorEvents<MouseEvent>(
-        (ev) => ev.page - _container.documentOffset,
+        (ev) => ev.page - root.getBoundingClientRect().topLeft,
         root.onMouseDown,
         window.onMouseMove,
         window.onMouseUp);
 
     listenToCursorEvents<TouchEvent>(
-        (ev) => ev.targetTouches[0].page - _container.documentOffset,
+        (ev) => ev.targetTouches[0].page - root.getBoundingClientRect().topLeft,
         root.onTouchStart,
         window.onTouchMove,
         window.onTouchEnd);
