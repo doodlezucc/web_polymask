@@ -11,26 +11,21 @@ import 'interactive/svg_polygon.dart';
 
 class PolygonCanvas extends OfflinePolygonCanvas {
   final svg.SvgSvgElement root;
-  final svg.GElement polygonRoot;
-  final svg.ClipPathElement clipPath;
+  final polypos = svg.ClipPathElement();
+  final polyneg = svg.GElement();
   bool captureInput;
 
   SvgPolygon activePolygon;
 
-  PolygonCanvas(this.root, {this.captureInput = true})
-      : polygonRoot = svg.GElement(),
-        clipPath = svg.ClipPathElement() {
+  PolygonCanvas(this.root, {this.captureInput = true}) {
     _initKeyListener();
     _initCursorControls();
 
-    var polyrootId = 'polyroot';
     root
       ..setAttribute('width', '100%')
       ..setAttribute('height', '100%')
-      ..append(clipPath
-        ..id = 'polyclip'
-        ..append(svg.UseElement()..href.baseVal = '#$polyrootId'))
-      ..append(polygonRoot..id = polyrootId);
+      ..append(polypos..id = 'polypos');
+    root.append(polyneg..id = 'polyneg');
   }
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;

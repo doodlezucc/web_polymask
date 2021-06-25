@@ -22,10 +22,8 @@ class SvgPolygon extends Polygon {
 
     if (instantClip) finish();
 
-    if (!positive) {
-      el.classes.add('polyminus');
-    }
-    canvas.clipPath.append(el);
+    var parent = positive ? canvas.polypos : canvas.polyneg;
+    parent.append(el);
   }
 
   @override

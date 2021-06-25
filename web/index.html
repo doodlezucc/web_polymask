@@ -43,12 +43,21 @@
           <feMorphology operator="dilate" radius="2" in="SourceGraphic" result="THICKNESS" />
           <feComposite operator="out" in="THICKNESS" in2="SourceGraphic"></feComposite>
         </filter>
+
+        <filter id="comp">
+          <feImage href="#polyneg" x="0" y="0"></feImage>
+          <feComposite k1="-1" k2="0" k3="1" k4="0" operator="arithmetic" in2="SourceGraphic"></feComposite>
+        </filter>
       </defs>
 
       <g filter="url(#outline)">
-        <rect class="barrier" width="100%" height="100%" fill="#fb8" />
+        <g filter="url(#comp)">
+          <rect class="barrier" width="100%" height="100%" fill="#fb8" />
+        </g>
       </g>
-      <rect class="barrier" width="100%" height="100%" fill="url(#pattern)" />
+      <g filter="url(#comp)">
+        <rect class="barrier" width="100%" height="100%" fill="url(#pattern)" />
+      </g>
     </svg>
   </div>
 </body>

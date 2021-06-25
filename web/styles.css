@@ -23,17 +23,9 @@ h1 {
 }
 
 .barrier {
-  clip-path: url(#polyclip);
+  clip-path: url(#polypos);
   width: 100%;
   height: 100%;
-  /* background: repeating-linear-gradient(-45deg,
-  #fff 0    24px,
-  #000 24px 48px); */
-}
-
-@keyframes move-background {
-    0% { background-position: -67.882px  0px; } /* [4 * 24px / sqrt(2) = 67.882px] */
-  100% { background-position:       0px  0px; }
 }
 
 svg {
@@ -44,11 +36,11 @@ svg {
 }
 
 svg polygon {
-  fill: #272b36;
-  stroke: #3da1ff;
+  fill: #fffa;
+  /* stroke: #3da1ff;
   stroke-width: 4px;
   stroke-linejoin: round;
-  stroke-linecap: round;
+  stroke-linecap: round; */
 }
 
 svg polygon.polyminus {
