@@ -6,12 +6,26 @@ class Polygon {
 
   Iterable<Point<int>> get points => _points;
 
+  bool _boxUpToDate = false;
+  Rectangle<int> _boundingBox;
+  Rectangle<int> get boundingBox {
+    if (!_boxUpToDate) {
+      _boundingBox = _getBoundingBox();
+      _boxUpToDate = true;
+    }
+
+    return _boundingBox;
+  }
+
   Polygon({List<Point<int>> points, this.positive = true})
       : _points = points ?? [];
 
-  void addPoint(Point<int> point) => _points.add(point);
+  void addPoint(Point<int> point) {
+    _points.add(point);
+    _boxUpToDate = false;
+  }
 
-  Rectangle<int> getBoundingBox() {
+  Rectangle<int> _getBoundingBox() {
     var p1 = _points.first;
     var xMin = p1.x;
     var xMax = p1.x;
