@@ -5,5 +5,5 @@ Point<int> forceIntPoint(Point p) {
 }
 
 Point<double> forceDoublePoint(Point p) {
-  return Point<double>(p.x, p.y);
+  return Point<double>(p.x.toDouble(), p.y.toDouble());
 }

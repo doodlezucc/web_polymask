@@ -18,7 +18,7 @@ void main() {
       expect(polygon.boundingBox, equals(Rectangle(1, 2, 6, 6)));
     });
 
-    test('Segment Rough Intersect (using bounding boxes)', () {
+    test('Segment Intersection (rough)', () {
       expect(
           segmentRoughIntersect(
             Point(0, 0),
@@ -72,5 +72,31 @@ void main() {
           ),
           equals(Point(2.5, 2)));
     });
+
+    test('Point Inside Polygon', () {
+      expect(pointInsidePolygon(Point(1, 1), polygon), equals(false));
+      expect(pointInsidePolygon(Point(6, 3), polygon), equals(true));
+      expect(pointInsidePolygon(Point(5, 7), polygon), equals(false));
+      expect(pointInsidePolygon(Point(4, 5), polygon), equals(true));
+      expect(pointInsidePolygon(Point(3, 4), polygon), equals(false));
+    });
+
+    var rect = Polygon(points: [
+      Point(2, 4),
+      Point(2, 7),
+      Point(4, 7),
+      Point(4, 4),
+    ]);
+
+    test('Signed Area', () {
+      expect(signedArea(polygon), equals(-17.5));
+      expect(signedArea(rect), equals(6));
+    });
+
+    var result = union(upscale(polygon, 100), upscale(rect, 100));
+
+    for (var poly in result) {
+      print(poly.points);
+    }
   });
 }
