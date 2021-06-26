@@ -4,7 +4,7 @@ import 'dart:math';
 import 'dart:svg' as svg;
 
 import 'package:web_polymask/offline_canvas.dart';
-import 'package:web_polymask/point_convert.dart';
+import 'package:web_polymask/math/point_convert.dart';
 import 'package:web_polymask/polygon.dart';
 
 import 'interactive/svg_polygon.dart';
@@ -107,7 +107,7 @@ class PolygonCanvas extends OfflinePolygonCanvas {
           moveStreamCtrl = null;
         }
 
-        if (createNew && !click) {
+        if (createNew && !click && activePolygon != null) {
           addPolygon(activePolygon);
           activePolygon = null;
         }

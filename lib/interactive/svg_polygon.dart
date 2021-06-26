@@ -15,12 +15,9 @@ class SvgPolygon extends Polygon {
     this.canvas, {
     List<Point<int>> points,
     bool positive = true,
-    bool instantClip = true,
   })  : el = svg.PolygonElement(),
         super(points: points, positive: positive) {
     refreshSvg();
-
-    if (instantClip) finish();
 
     var parent = positive ? canvas.polypos : canvas.polyneg;
     parent.append(el);
@@ -33,10 +30,6 @@ class SvgPolygon extends Polygon {
       super.addPoint(point);
       refreshSvg();
     }
-  }
-
-  void finish() {
-    el.classes.add('polyclip');
   }
 
   void dispose() {

@@ -36,13 +36,9 @@ svg {
 }
 
 svg polygon {
-  fill: #fffa;
+  fill: #fff;
   /* stroke: #3da1ff;
   stroke-width: 4px;
   stroke-linejoin: round;
   stroke-linecap: round; */
-}
-
-svg polygon.polyminus {
-  fill: #fffa;
 }
