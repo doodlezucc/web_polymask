@@ -111,7 +111,6 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   var p1 = a.points.last;
   var inside = pointInsidePolygon(p1, b);
-  var enter = !inside;
   var overlaps = 0;
 
   // var points = <Point<int>>[];
@@ -126,6 +125,8 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
     // Iterate through segments if (u -> v) is in other polygon's bounding box
     if (b.boundingBox.intersects(rect)) {
+      var nIsects = <Intersection>[];
+
       var nvert = b.points.length;
       for (var i2 = 0, j2 = nvert - 1; i2 < nvert; j2 = i2++) {
         var e = b.points.elementAt(j2);
@@ -133,7 +134,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
         var intersection = segmentIntersect(u, v, e, f);
         if (intersection != null) {
-          intersects.add(Intersection(j1, j2, intersection));
+          nIsects.add(Intersection(j1, j2, intersection));
 
           inside = !inside;
 
@@ -141,6 +142,16 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
             overlaps++;
           }
         }
+      }
+
+      // Sort new intersections by distance to segment start
+      if (nIsects.isNotEmpty) {
+        var uAsDouble = forceDoublePoint(u);
+
+        nIsects.sort((isect1, isect2) => isect1.intersect
+            .squaredDistanceTo(uAsDouble)
+            .compareTo(isect2.intersect.squaredDistanceTo(uAsDouble)));
+        intersects.addAll(nIsects);
       }
     }
   }
@@ -153,37 +164,30 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     return [a, b];
   }
 
-  if (overlaps == 1) {
-    // Result will be a single polygon
-    var points = <Point<int>>[];
+  void tracePoints(List<Point<int>> points, Polygon poly, int a, int b) {
+    var len = poly.points.length;
+    var start = a + 1;
+    var steps = (b - start + len) % len;
 
-    points.add(forceIntPoint(intersects[0].intersect));
-
-    if (enter) {
-      var start = intersects[0].bSegment + 1;
-      var steps =
-          (intersects[1].bSegment - start + b.points.length) % b.points.length;
-
-      for (var i = 0; i <= steps; i++) {
-        points.add(b.points[(start + i) % b.points.length]);
-      }
-
-      points.add(forceIntPoint(intersects[1].intersect));
-
-      start = intersects[1].aSegment + 1;
-      steps =
-          (intersects[0].aSegment - start + a.points.length) % a.points.length;
-
-      for (var i = 0; i <= steps; i++) {
-        points.add(a.points[(start + i) % a.points.length]);
-      }
+    for (var i = 0; i <= steps; i++) {
+      points.add(poly.points[(start + i) % len]);
     }
-
-    return [Polygon(points: points)];
   }
 
   // TODO: Result will consist of multiple polygons and holes
-  return null;
+  // Result will be merged
+  var points = <Point<int>>[];
+
+  for (var i = 0; i < intersects.length; i += 2) {
+    points.add(forceIntPoint(intersects[i].intersect));
+    tracePoints(points, b, intersects[i].bSegment, intersects[i + 1].bSegment);
+
+    points.add(forceIntPoint(intersects[i + 1].intersect));
+    tracePoints(points, a, intersects[i + 1].aSegment,
+        intersects[(i + 2) % intersects.length].aSegment);
+  }
+
+  return [Polygon(points: points)];
 }
 
 Polygon upscale(Polygon poly, int m) {

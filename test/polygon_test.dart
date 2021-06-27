@@ -22,7 +22,7 @@ void main() {
     ]);
 
     test('Polygon Bounding Box', () {
-      expect(polygon.boundingBox, equals(Rectangle(1, 2, 6, 6)));
+      expect(polygon.boundingBox, Rectangle(1, 2, 6, 6));
     });
 
     test('Segment Intersection (rough)', () {
@@ -33,7 +33,7 @@ void main() {
             Point(3, 0),
             Point(3, 3),
           ),
-          equals(false));
+          false);
       expect(
           segmentRoughIntersect(
             Point(0, 0),
@@ -41,7 +41,7 @@ void main() {
             Point(2, 0),
             Point(1, 0),
           ),
-          equals(true));
+          true);
       expect(
           segmentRoughIntersect(
             Point(2, 2),
@@ -49,7 +49,7 @@ void main() {
             Point(3, 2),
             Point(2, 4),
           ),
-          equals(true));
+          true);
     });
 
     test('Segment Intersection Point', () {
@@ -60,7 +60,7 @@ void main() {
             Point(3, 3),
             Point(2, 0),
           ),
-          equals(null));
+          null);
       expect(
           segmentIntersect(
             Point(0, 0),
@@ -68,7 +68,7 @@ void main() {
             Point(2, 0),
             Point(0, 2),
           ),
-          equals(Point(1.0, 1.0)));
+          Point(1.0, 1.0));
       expect(
           segmentIntersect(
             Point(0, 2), // horizontal line
@@ -77,20 +77,20 @@ void main() {
             Point(1, 0), // diagonal line
             Point(4, 4),
           ),
-          equals(Point(2.5, 2)));
+          Point(2.5, 2));
     });
 
     test('Point Inside Polygon', () {
-      expect(pointInsidePolygon(Point(1, 1), polygon), equals(false));
-      expect(pointInsidePolygon(Point(6, 3), polygon), equals(true));
-      expect(pointInsidePolygon(Point(5, 7), polygon), equals(false));
-      expect(pointInsidePolygon(Point(4, 5), polygon), equals(true));
-      expect(pointInsidePolygon(Point(3, 4), polygon), equals(false));
+      expect(pointInsidePolygon(Point(1, 1), polygon), false);
+      expect(pointInsidePolygon(Point(6, 3), polygon), true);
+      expect(pointInsidePolygon(Point(5, 7), polygon), false);
+      expect(pointInsidePolygon(Point(4, 5), polygon), true);
+      expect(pointInsidePolygon(Point(3, 4), polygon), false);
     });
 
     test('Signed Area', () {
-      expect(signedArea(polygon), equals(-17.5));
-      expect(signedArea(rect), equals(6));
+      expect(signedArea(polygon), -17.5);
+      expect(signedArea(rect), 6);
     });
 
     group('Union', () {
@@ -120,8 +120,57 @@ void main() {
         ];
 
         expect(result.length, 1);
-        expect(result.first.points, expectedPoints);
+        expect(result.first.points, unorderedEquals(expectedPoints));
       });
+
+      test('2 Overlaps, 0 Holes', () {
+        var diagonal = Polygon(
+            points: [Point(4, 1), Point(5, 1), Point(8, 4), Point(8, 5)]);
+
+        var result = union(polygon, diagonal);
+        var expectedPoints = [
+          ...polygon.points,
+          ...diagonal.points,
+          Point(5, 2),
+          Point(6, 2),
+          Point(7, 3),
+          Point(7, 4),
+        ];
+
+        expect(result.length, 1);
+        expect(result.first.points, unorderedEquals(expectedPoints));
+      });
+    });
+
+    test('2 Overlaps, 1 Hole', () {
+      var uShape = Polygon(points: [
+        Point(6, 3),
+        Point(9, 3),
+        Point(9, 7),
+        Point(6, 7),
+        Point(6, 6),
+        Point(8, 6),
+        Point(8, 4),
+        Point(6, 4),
+      ]);
+
+      var result = union(polygon, uShape);
+      var expectedPoly = [
+        ...polygon.points,
+        Point(7, 3),
+        Point(9, 3),
+        Point(9, 7),
+        Point(7, 7),
+      ];
+
+      var expectedHole = [Point(7, 4), Point(8, 4), Point(8, 6), Point(7, 6)];
+
+      // Convert points to SVG polygon data (debugging)
+      print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+
+      expect(result.length, 2);
+      expect(result.first.points, unorderedEquals(expectedPoly));
+      expect(result.last.points, unorderedEquals(expectedHole));
     });
   });
 }
