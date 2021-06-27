@@ -14,6 +14,13 @@ void main() {
       Point(7, 8),
     ]);
 
+    var rect = Polygon(points: [
+      Point(2, 4),
+      Point(2, 7),
+      Point(4, 7),
+      Point(4, 4),
+    ]);
+
     test('Polygon Bounding Box', () {
       expect(polygon.boundingBox, equals(Rectangle(1, 2, 6, 6)));
     });
@@ -81,22 +88,40 @@ void main() {
       expect(pointInsidePolygon(Point(3, 4), polygon), equals(false));
     });
 
-    var rect = Polygon(points: [
-      Point(2, 4),
-      Point(2, 7),
-      Point(4, 7),
-      Point(4, 4),
-    ]);
-
     test('Signed Area', () {
       expect(signedArea(polygon), equals(-17.5));
       expect(signedArea(rect), equals(6));
     });
 
-    var result = union(upscale(polygon, 100), upscale(rect, 100));
+    group('Union', () {
+      test('0 Overlaps', () {
+        var box = Polygon(
+            points: [Point(1, 3), Point(1, 4), Point(2, 4), Point(2, 3)]);
+        expect(union(polygon, box), unorderedEquals([polygon, box]));
 
-    for (var poly in result) {
-      print(poly.points);
-    }
+        box = Polygon(
+            points: [Point(5, 3), Point(5, 4), Point(6, 4), Point(6, 3)]);
+        expect(union(polygon, box), orderedEquals([polygon]));
+        expect(union(box, polygon), orderedEquals([polygon]));
+      });
+
+      test('1 Overlap', () {
+        var result = union(upscale(polygon, 100), upscale(rect, 100));
+        var expectedPoints = [
+          Point(400, 575),
+          Point(400, 700),
+          Point(200, 700),
+          Point(200, 400),
+          Point(350, 400),
+          Point(400, 300),
+          Point(100, 200),
+          Point(700, 200),
+          Point(700, 800),
+        ];
+
+        expect(result.length, 1);
+        expect(result.first.points, expectedPoints);
+      });
+    });
   });
 }

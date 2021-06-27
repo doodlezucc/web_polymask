@@ -112,7 +112,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
   var p1 = a.points.last;
   var inside = pointInsidePolygon(p1, b);
   var enter = !inside;
-  var links = 0;
+  var overlaps = 0;
 
   // var points = <Point<int>>[];
   var intersects = <Intersection>[];
@@ -133,23 +133,27 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
         var intersection = segmentIntersect(u, v, e, f);
         if (intersection != null) {
-          print(j1);
-          print(j2);
           intersects.add(Intersection(j1, j2, intersection));
 
           inside = !inside;
 
           if (!inside) {
-            links++;
+            overlaps++;
           }
         }
       }
     }
   }
 
-  if (links == 0) return [a, b];
+  if (overlaps == 0) {
+    if (inside) return [b]; // B contains A
 
-  if (links == 1) {
+    if (pointInsidePolygon(b.points.first, a)) return [a]; // A contains B
+
+    return [a, b];
+  }
+
+  if (overlaps == 1) {
     // Result will be a single polygon
     var points = <Point<int>>[];
 
