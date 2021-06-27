@@ -5,7 +5,7 @@ import 'dart:svg' as svg;
 
 import 'package:web_polymask/offline_canvas.dart';
 import 'package:web_polymask/math/point_convert.dart';
-import 'package:web_polymask/polygon.dart';
+import 'package:web_polymask/math/polygon.dart';
 
 import 'interactive/svg_polygon.dart';
 

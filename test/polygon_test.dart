@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:test/test.dart';
 import 'package:web_polymask/math/polymath.dart';
-import 'package:web_polymask/polygon.dart';
+import 'package:web_polymask/math/polygon.dart';
 
 void main() {
   group('Polygon Calculus', () {

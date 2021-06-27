@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:web_polymask/math/point_convert.dart';
-import 'package:web_polymask/polygon.dart';
+import 'package:web_polymask/math/polygon.dart';
 
 bool boxOverlap(Polygon a, Polygon b) {
   return a.boundingBox.intersects(b.boundingBox);

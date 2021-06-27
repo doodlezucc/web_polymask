@@ -2,7 +2,7 @@ import 'dart:html';
 import 'dart:math';
 import 'dart:svg' as svg;
 
-import 'package:web_polymask/polygon.dart';
+import 'package:web_polymask/math/polygon.dart';
 import 'package:web_polymask/polygon_canvas.dart';
 
 class SvgPolygon extends Polygon {
