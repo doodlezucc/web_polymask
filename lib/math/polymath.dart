@@ -111,6 +111,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   var p1 = a.points.last;
   var inside = pointInsidePolygon(p1, b);
+  var fixDirection = !inside;
   var overlaps = 0;
 
   // var points = <Point<int>>[];
@@ -164,6 +165,11 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     return [a, b];
   }
 
+  if (!fixDirection) {
+    // Rotate intersection list to fix tracing direction
+    intersects.add(intersects.removeAt(0));
+  }
+
   void tracePoints(List<Point<int>> points, Polygon poly, int a, int b) {
     var len = poly.points.length;
     var start = a + 1;
@@ -180,7 +186,22 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   for (var i = 0; i < intersects.length; i += 2) {
     points.add(forceIntPoint(intersects[i].intersect));
-    tracePoints(points, b, intersects[i].bSegment, intersects[i + 1].bSegment);
+    //tracePoints(points, b, intersects[i].bSegment, intersects[i + 1].bSegment);
+
+    var len = b.points.length;
+    var start = intersects[i].bSegment + 1;
+    var steps = (intersects[i + 1].bSegment - start + len) % len;
+
+    var visitOthers = false;
+    for (var j = 0; j < steps; j++) {
+      if (intersects.last.bSegment == start + j) {
+        print("there's a hole in my soup");
+        break;
+      }
+
+      points.add(b.points[(start + j) % len]);
+    }
+    points.add(b.points[(start + steps) % len]);
 
     points.add(forceIntPoint(intersects[i + 1].intersect));
     tracePoints(points, a, intersects[i + 1].aSegment,

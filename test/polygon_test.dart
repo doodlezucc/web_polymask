@@ -122,6 +122,30 @@ void main() {
         expect(result.length, 1);
         expect(result.first.points, unorderedEquals(expectedPoints));
       });
+      test('1 Overlap (Overlapping Starting Point)', () {
+        var rect = Polygon(points: [
+          Point(5, 6),
+          Point(5, 9),
+          Point(8, 9),
+          Point(8, 6),
+        ]);
+
+        var result = union(upscale(polygon, 100), upscale(rect, 100));
+        var expectedPoints = [
+          Point(300, 500),
+          Point(400, 300),
+          Point(100, 200),
+          Point(700, 200),
+          Point(700, 600),
+          Point(800, 600),
+          Point(800, 900),
+          Point(500, 900),
+          Point(500, 650),
+        ];
+
+        expect(result.length, 1);
+        expect(result.first.points, unorderedEquals(expectedPoints));
+      });
 
       test('2 Overlaps, 0 Holes', () {
         var diagonal = Polygon(
