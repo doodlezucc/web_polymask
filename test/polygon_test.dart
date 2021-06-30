@@ -190,8 +190,8 @@ void main() {
           var result = union(a, b);
 
           // Convert points to SVG polygon data (debugging)
-          print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
-          print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
+          // print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+          // print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
 
           expect(result.length, 2);
 
@@ -241,8 +241,8 @@ void main() {
           var result = union(a, b);
 
           // Convert points to SVG polygon data (debugging)
-          print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
-          print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
+          // print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+          // print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
 
           expect(result.length, 2);
 
@@ -257,6 +257,66 @@ void main() {
 
         _test2overlaps1hole(polygon, uShape, true);
         _test2overlaps1hole(uShape, polygon, false);
+      });
+
+      test('2 Holes', () {
+        var polyUp = upscale(polygon, 100);
+        var uShape = Polygon(points: [
+          Point(600, 300),
+          Point(900, 300),
+          Point(900, 1000),
+          Point(400, 1000),
+          Point(400, 500),
+          Point(500, 500),
+          Point(500, 700),
+          Point(800, 700),
+          Point(800, 400),
+          Point(600, 400),
+        ]);
+
+        var expectedPoly = [
+          ...polyUp.points.take(polyUp.points.length - 1),
+          Point(700, 300),
+          Point(900, 300),
+          Point(900, 1000),
+          Point(400, 1000),
+          Point(400, 575),
+        ];
+        var expectedHole1 = [
+          Point(700, 400),
+          Point(800, 400),
+          Point(800, 700),
+          Point(700, 700),
+        ];
+        var expectedHole2 = [
+          Point(500, 650),
+          Point(500, 700),
+          Point(566, 700),
+        ];
+
+        void _test2overlaps1hole(Polygon a, Polygon b, bool order) {
+          var result = union(a, b);
+
+          // Convert points to SVG polygon data (debugging)
+          for (var poly in result) {
+            print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+          }
+
+          expect(result.length, 3);
+
+          expect(result.first.points,
+              unorderedEquals(order ? expectedHole2 : expectedPoly));
+          expect(result.elementAt(1).points,
+              unorderedEquals(order ? expectedPoly : expectedHole2));
+          expect(result.last.points, unorderedEquals(expectedHole1));
+
+          expect(result.first.positive, !order);
+          expect(result.elementAt(1).positive, order);
+          expect(result.last.positive, false);
+        }
+
+        _test2overlaps1hole(polyUp, uShape, true);
+        _test2overlaps1hole(uShape, polyUp, false);
       });
     });
   });
