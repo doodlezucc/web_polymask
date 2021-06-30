@@ -164,37 +164,100 @@ void main() {
         expect(result.length, 1);
         expect(result.first.points, unorderedEquals(expectedPoints));
       });
-    });
 
-    test('2 Overlaps, 1 Hole', () {
-      var uShape = Polygon(points: [
-        Point(6, 3),
-        Point(9, 3),
-        Point(9, 7),
-        Point(6, 7),
-        Point(6, 6),
-        Point(8, 6),
-        Point(8, 4),
-        Point(6, 4),
-      ]);
+      test('2 Overlaps, 1 Hole', () {
+        var uShape = Polygon(points: [
+          Point(6, 3),
+          Point(9, 3),
+          Point(9, 7),
+          Point(6, 7),
+          Point(6, 6),
+          Point(8, 6),
+          Point(8, 4),
+          Point(6, 4),
+        ]);
 
-      var result = union(polygon, uShape);
-      var expectedPoly = [
-        ...polygon.points,
-        Point(7, 3),
-        Point(9, 3),
-        Point(9, 7),
-        Point(7, 7),
-      ];
+        var expectedPoly = [
+          ...polygon.points,
+          Point(7, 3),
+          Point(9, 3),
+          Point(9, 7),
+          Point(7, 7),
+        ];
+        var expectedHole = [Point(7, 4), Point(8, 4), Point(8, 6), Point(7, 6)];
 
-      var expectedHole = [Point(7, 4), Point(8, 4), Point(8, 6), Point(7, 6)];
+        void _test2overlaps1hole(Polygon a, Polygon b) {
+          var result = union(a, b);
 
-      // Convert points to SVG polygon data (debugging)
-      print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+          // Convert points to SVG polygon data (debugging)
+          print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+          print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
 
-      expect(result.length, 2);
-      expect(result.first.points, unorderedEquals(expectedPoly));
-      expect(result.last.points, unorderedEquals(expectedHole));
+          expect(result.length, 2);
+
+          expect(result.first.positive, true);
+          expect(result.first.points, unorderedEquals(expectedPoly));
+
+          expect(result.last.positive, false);
+          expect(result.last.points, unorderedEquals(expectedHole));
+        }
+
+        _test2overlaps1hole(polygon, uShape);
+        _test2overlaps1hole(uShape, polygon);
+      });
+
+      test('2 Overlaps, 1 Hole (Overlapping Starting Point)', () {
+        var uShape = Polygon(points: [
+          Point(6, 3),
+          Point(9, 3),
+          Point(9, 10),
+          Point(4, 10),
+          Point(4, 5),
+          Point(5, 5),
+          Point(5, 9),
+          Point(8, 9),
+          Point(8, 4),
+          Point(6, 4),
+        ]);
+
+        var expectedPoly = [
+          ...polygon.points.take(polygon.points.length - 1),
+          Point(7, 3),
+          Point(9, 3),
+          Point(9, 10),
+          Point(4, 10),
+          Point(4, 5),
+        ];
+        var expectedHole = [
+          Point(7, 4),
+          Point(8, 4),
+          Point(8, 9),
+          Point(5, 9),
+          Point(5, 6),
+          Point(7, 8),
+        ];
+
+        void _test2overlaps1hole(Polygon a, Polygon b, bool order) {
+          var result = union(a, b);
+
+          // Convert points to SVG polygon data (debugging)
+          print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
+          print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
+
+          expect(result.length, 2);
+
+          expect(result.last.positive, order);
+          expect(result.last.points,
+              unorderedEquals(order ? expectedPoly : expectedHole));
+
+          expect(result.first.positive, !order);
+          expect(result.first.points,
+              unorderedEquals(order ? expectedHole : expectedPoly));
+        }
+
+        _test2overlaps1hole(polygon, uShape, true);
+        _test2overlaps1hole(uShape, polygon, false);
+      });
     });
   });
 }

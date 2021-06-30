@@ -3,6 +3,31 @@ import 'dart:math';
 import 'package:web_polymask/math/point_convert.dart';
 import 'package:web_polymask/math/polygon.dart';
 
+Rectangle<int> pointsToBoundingBox(List<Point<int>> points) {
+  var p1 = points.first;
+  var xMin = p1.x;
+  var xMax = p1.x;
+  var yMin = p1.y;
+  var yMax = p1.y;
+
+  for (var i = 1; i < points.length; i++) {
+    var p = points[i];
+    if (p.x < xMin) {
+      xMin = p.x;
+    } else if (p.x > xMax) {
+      xMax = p.x;
+    }
+
+    if (p.y < yMin) {
+      yMin = p.y;
+    } else if (p.y > yMax) {
+      yMax = p.y;
+    }
+  }
+
+  return Rectangle<int>(xMin, yMin, xMax - xMin, yMax - yMin);
+}
+
 bool boxOverlap(Polygon a, Polygon b) {
   return a.boundingBox.intersects(b.boundingBox);
 }
@@ -111,7 +136,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   var p1 = a.points.last;
   var inside = pointInsidePolygon(p1, b);
-  var fixDirection = !inside;
+  var firstIsectExits = inside;
   var overlaps = 0;
 
   // var points = <Point<int>>[];
@@ -165,50 +190,115 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     return [a, b];
   }
 
-  if (!fixDirection) {
-    // Rotate intersection list to fix tracing direction
-    intersects.add(intersects.removeAt(0));
+  // Using a "switch approach": Start at the first intersection, trace B
+  // until meeting another one. Switch to A and trace its points until meeting
+  // the next intersection. If this next intersection is not what we started
+  // from, continue switching. If it is, a path is finished. Repeat until there
+  // are no unvisited intersections left.
+
+  var bSortedIsects = List<Intersection>.from(intersects)
+    ..sort((ia, ib) {
+      if (ia.bSegment == ib.bSegment) {
+        var segStart = forceDoublePoint(b.points[ia.bSegment]);
+
+        return ia.intersect
+            .squaredDistanceTo(segStart)
+            .compareTo(ib.intersect.squaredDistanceTo(segStart));
+      }
+      return ia.bSegment.compareTo(ib.bSegment);
+    });
+
+  var outgoings = <Intersection>[];
+  var start = firstIsectExits ? 1 : 0;
+  for (var i = start; i < intersects.length; i += 2) {
+    outgoings.add(intersects[i]);
   }
 
-  void tracePoints(List<Point<int>> points, Polygon poly, int a, int b) {
-    var len = poly.points.length;
-    var start = a + 1;
-    var steps = (b - start + len) % len;
+  var results = <List<Point<int>>>[];
 
-    for (var i = 0; i <= steps; i++) {
-      points.add(poly.points[(start + i) % len]);
-    }
-  }
+  while (intersects.isNotEmpty) {
+    var initial = outgoings[0];
+    var visited = {initial};
+    var points = <Point<int>>[];
 
-  // TODO: Result will consist of multiple polygons and holes
-  // Result will be merged
-  var points = <Point<int>>[];
+    var aEnd = initial;
 
-  for (var i = 0; i < intersects.length; i += 2) {
-    points.add(forceIntPoint(intersects[i].intersect));
-    //tracePoints(points, b, intersects[i].bSegment, intersects[i + 1].bSegment);
+    var aSrc = intersects.indexOf(aEnd);
 
-    var len = b.points.length;
-    var start = intersects[i].bSegment + 1;
-    var steps = (intersects[i + 1].bSegment - start + len) % len;
+    while (true) {
+      // Trace B
+      var bIndex = bSortedIsects.indexOf(aEnd);
+      var bStart = aEnd;
+      var bEnd = bSortedIsects[(bIndex + 1) % intersects.length];
 
-    var visitOthers = false;
-    for (var j = 0; j < steps; j++) {
-      if (intersects.last.bSegment == start + j) {
-        print("there's a hole in my soup");
-        break;
+      points.add(forceIntPoint(bStart.intersect));
+
+      var steps = bEnd.bSegment - bStart.bSegment;
+      if (steps == 0 && bIndex + 1 == intersects.length) {
+        steps = b.points.length;
+      } else if (steps < 0) steps += b.points.length;
+
+      for (var i = 0; i < steps; i++) {
+        points.add(b.points[(bStart.bSegment + i + 1) % b.points.length]);
       }
 
-      points.add(b.points[(start + j) % len]);
-    }
-    points.add(b.points[(start + steps) % len]);
+      visited.add(bEnd);
 
-    points.add(forceIntPoint(intersects[i + 1].intersect));
-    tracePoints(points, a, intersects[i + 1].aSegment,
-        intersects[(i + 2) % intersects.length].aSegment);
+      // Trace A
+      var aIndex = intersects.indexOf(bEnd);
+      var aStart = bEnd;
+      aEnd = intersects[(aIndex + 1) % intersects.length];
+
+      points.add(forceIntPoint(aStart.intersect));
+
+      steps = aEnd.aSegment - aStart.aSegment;
+      if (steps == 0) {
+        var diff = aIndex - aSrc;
+        if (diff != -1) {
+          steps = a.points.length;
+        }
+      } else if (steps < 0) steps += a.points.length;
+
+      for (var i = 0; i < steps; i++) {
+        points.add(a.points[(aStart.aSegment + i + 1) % a.points.length]);
+      }
+
+      if (aEnd != initial) {
+        visited.add(aEnd);
+      } else {
+        results.add(points);
+        break;
+      }
+    }
+
+    intersects.removeWhere((i) => visited.contains(i));
+    bSortedIsects.removeWhere((i) => visited.contains(i));
+    outgoings.removeWhere((i) => visited.contains(i));
   }
 
-  return [Polygon(points: points)];
+  // Figure out polarity, there can only be one positive polygon.
+  var bigBox = pointsToBoundingBox(results.first);
+  var firstIsPositive = true;
+
+  var out = List<Polygon>.filled(results.length, null);
+
+  for (var i = 1; i < results.length; i++) {
+    var poly = results[i];
+    var box = pointsToBoundingBox(poly);
+
+    var isPositive = box.containsRectangle(bigBox);
+
+    if (isPositive) {
+      firstIsPositive = false;
+      bigBox = box;
+    }
+
+    out[i] = Polygon(points: poly, positive: isPositive);
+  }
+
+  out[0] = Polygon(points: results.first, positive: firstIsPositive);
+
+  return out;
 }
 
 Polygon upscale(Polygon poly, int m) {
