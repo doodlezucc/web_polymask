@@ -23,6 +23,9 @@ class SvgPolygon extends Polygon {
     parent.append(el);
   }
 
+  SvgPolygon.copy(PolygonCanvas canvas, Polygon other)
+      : this(canvas, points: other.points, positive: other.positive);
+
   @override
   void addPoint(Point<int> point) {
     if (points.isEmpty ||
