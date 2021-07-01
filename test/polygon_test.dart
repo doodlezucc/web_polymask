@@ -297,9 +297,9 @@ void main() {
         var result = union(a, b);
 
         // Convert points to SVG polygon data (debugging)
-        for (var poly in result) {
-          print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-        }
+        // for (var poly in result) {
+        //   print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+        // }
 
         expect(result.length, 3);
 
@@ -316,6 +316,37 @@ void main() {
 
       _test2overlaps1hole(polyUp, uShape, true);
       _test2overlaps1hole(uShape, polyUp, false);
+    });
+
+    test('Dealing with Doubles', () {
+      var rect = Polygon(points: [
+        Point(3, 5),
+        Point(3, 8),
+        Point(7, 8),
+        Point(7, 5),
+      ]);
+
+      var expectedPoly = [
+        ...polygon.points,
+        Point(7, 5),
+        Point(3, 8),
+      ];
+
+      void _testDoubles(Polygon a, Polygon b, bool order) {
+        var result = union(a, b);
+
+        // Convert points to SVG polygon data (debugging)
+        // for (var poly in result) {
+        //   print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+        // }
+
+        expect(result.length, 1);
+        expect(result.first.positive, true);
+        expect(result.first.points, unorderedEquals(expectedPoly));
+      }
+
+      _testDoubles(polygon, rect, true);
+      _testDoubles(rect, polygon, false);
     });
   });
 }

@@ -139,7 +139,6 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
   var firstIsectExits = inside;
   var overlaps = 0;
 
-  // var points = <Point<int>>[];
   var intersects = <Intersection>[];
 
   var nvert = a.points.length;
@@ -160,12 +159,16 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
         var intersection = segmentIntersect(u, v, e, f);
         if (intersection != null) {
-          nIsects.add(Intersection(j1, j2, intersection));
+          // Check if intersection already exists
+          if (!nIsects.any((any) => any.intersect == intersection) &&
+              !intersects.any((any) => any.intersect == intersection)) {
+            nIsects.add(Intersection(j1, j2, intersection));
 
-          inside = !inside;
+            inside = !inside;
 
-          if (!inside) {
-            overlaps++;
+            if (!inside) {
+              overlaps++;
+            }
           }
         }
       }
@@ -293,12 +296,34 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       bigBox = box;
     }
 
-    out[i] = Polygon(points: poly, positive: isPositive);
+    out[i] = removeDoubles(Polygon(points: poly, positive: isPositive));
   }
 
-  out[0] = Polygon(points: results.first, positive: firstIsPositive);
+  out[0] =
+      removeDoubles(Polygon(points: results.first, positive: firstIsPositive));
 
   return out;
+}
+
+/// Removes every point preceded by another point with the same coordinates
+/// and forces `polygon`s list of points not to repeat.
+Polygon removeDoubles(Polygon polygon) {
+  var first = polygon.points.first;
+  var previous = first;
+  var nPoints = <Point<int>>[first];
+
+  for (var i = 1; i < polygon.points.length; i++) {
+    var p = polygon.points[i];
+    if (p != previous) {
+      if (p == first) {
+        break;
+      }
+      previous = p;
+      nPoints.add(p);
+    }
+  }
+
+  return Polygon(points: nPoints, positive: polygon.positive);
 }
 
 Polygon upscale(Polygon poly, int m) {
