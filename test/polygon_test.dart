@@ -392,11 +392,6 @@ void main() {
 
       var result = union(polygon, rect);
 
-      // Convert points to SVG polygon data (debugging)
-      for (var poly in result) {
-        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-      }
-
       expect(result.length, 1);
       expect(result.first.positive, true);
       expect(result.first.points, unorderedEquals(expectedPoly));
@@ -411,11 +406,6 @@ void main() {
       ], positive: false);
 
       var result = union(polygon, cut);
-
-      // Convert points to SVG polygon data (debugging)
-      for (var poly in result) {
-        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-      }
 
       expect(result.length, 1);
       expect(result.first.positive, true);
@@ -439,14 +429,65 @@ void main() {
 
       var result = union(polygon, cut);
 
-      // Convert points to SVG polygon data (debugging)
-      for (var poly in result) {
-        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-      }
-
       expect(result.length, 1);
       expect(result.first.positive, true);
       expect(result.first.points, unorderedEquals(expectedPoly));
     });
+
+    test('Cut Through Polygon', () {
+      var diagonal = Polygon(
+          points: [Point(4, 1), Point(5, 1), Point(8, 4), Point(8, 5)],
+          positive: false);
+
+      var poly1 = [
+        Point(3, 5),
+        Point(4, 3),
+        Point(1, 2),
+        Point(5, 2),
+        Point(7, 4),
+        Point(7, 8),
+      ];
+      var poly2 = [Point(6, 2), Point(7, 2), Point(7, 3)];
+
+      var result = union(polygon, diagonal);
+
+      expect(result.length, 2);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(poly1));
+      expect(result.last.positive, true);
+      expect(result.last.points, unorderedEquals(poly2));
+    });
+
+    test('Multiple Cuts Through Polygon', () {
+      var cut = Polygon(
+          points: [Point(5, 8), Point(5, 1), Point(8, 4), Point(8, 5)],
+          positive: false);
+
+      var poly1 = [Point(5, 7), Point(7, 5), Point(7, 8)];
+      var poly2 = [
+        Point(3, 5),
+        Point(4, 3),
+        Point(1, 2),
+        Point(5, 2),
+        Point(5, 6)
+      ];
+      var poly3 = [Point(6, 2), Point(7, 2), Point(7, 3)];
+
+      var result = union(polygon, cut);
+
+      expect(result.length, 3);
+      expect(result.every((p) => p.positive), true);
+
+      expect(result.first.points, unorderedEquals(poly1));
+      expect(result.elementAt(1).points, unorderedEquals(poly2));
+      expect(result.last.points, unorderedEquals(poly3));
+    });
   });
+}
+
+/// Prints a list of polygons as SVG polygon data (debugging).
+void printUnionResults(Iterable<Polygon> result) {
+  for (var poly in result) {
+    print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+  }
 }

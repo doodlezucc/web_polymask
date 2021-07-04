@@ -307,34 +307,35 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     outgoings.removeWhere((i) => visited.contains(i));
   }
 
-  if (intersects.isNotEmpty) {
-    print('well this should not have happened');
-  }
+  if (samePolarity) {
+    // Figure out polarity, there can only be one positive polygon.
+    var bigBox = pointsToBoundingBox(results.first);
+    var firstIsPositive = true;
 
-  // Figure out polarity, there can only be one positive polygon.
-  var bigBox = pointsToBoundingBox(results.first);
-  var firstIsPositive = true;
+    var out = List<Polygon>.filled(results.length, null);
 
-  var out = List<Polygon>.filled(results.length, null);
+    for (var i = 1; i < results.length; i++) {
+      var poly = results[i];
+      var box = pointsToBoundingBox(poly);
 
-  for (var i = 1; i < results.length; i++) {
-    var poly = results[i];
-    var box = pointsToBoundingBox(poly);
+      var isPositive = box.containsRectangle(bigBox);
 
-    var isPositive = box.containsRectangle(bigBox);
+      if (isPositive) {
+        firstIsPositive = false;
+        bigBox = box;
+      }
 
-    if (isPositive) {
-      firstIsPositive = false;
-      bigBox = box;
+      out[i] = removeDoubles(Polygon(points: poly, positive: isPositive));
     }
 
-    out[i] = removeDoubles(Polygon(points: poly, positive: isPositive));
+    out[0] = removeDoubles(
+        Polygon(points: results.first, positive: firstIsPositive));
+
+    return out;
+  } else {
+    return results
+        .map((ps) => removeDoubles(Polygon(points: ps, positive: a.positive)));
   }
-
-  out[0] =
-      removeDoubles(Polygon(points: results.first, positive: firstIsPositive));
-
-  return out;
 }
 
 /// Removes every point preceded by another point with the same coordinates
