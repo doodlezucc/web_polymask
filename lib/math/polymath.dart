@@ -53,7 +53,7 @@ Point<double> segmentIntersect(Point a, Point b, Point u, Point v) {
   if (s >= 0 && s <= 1) {
     var t = (s2.x * (a.y - u.y) - s2.y * (a.x - u.x)) / div;
 
-    if (t >= 0 && t <= 1) {
+    if (t > 0 && t <= 1) {
       // Collision detected
       return forceDoublePoint(a) + s1 * t;
     }
@@ -86,7 +86,7 @@ double signedArea(Polygon polygon) {
   var signedArea = 0;
   var poly = polygon.points;
 
-  var nvert = polygon.points.length;
+  var nvert = poly.length;
   for (var i = 0, j = nvert - 1; i < nvert; j = i++) {
     var a = poly[i];
     var b = poly[j];
@@ -106,7 +106,7 @@ void forceClockwise(Polygon polygon) {
 ///
 /// Based on
 /// https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html.
-bool pointInsidePolygon(Point p, Polygon polygon) {
+bool pointInsidePolygon(Point p, Polygon polygon, {bool allowEdges = false}) {
   if (!polygon.boundingBox.containsPoint(p)) return false;
 
   var inside = false;
@@ -118,8 +118,16 @@ bool pointInsidePolygon(Point p, Polygon polygon) {
     var a = poly[i];
     var b = poly[j];
 
-    if (((a.y > p.y) != (b.y > p.y)) &&
-        (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)) {
+    bool swch;
+    if (allowEdges) {
+      swch = ((a.y >= p.y) != (b.y >= p.y)) &&
+          (p.x <= (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x);
+    } else {
+      swch = ((a.y > p.y) != (b.y > p.y)) &&
+          (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x);
+    }
+
+    if (swch) {
       inside = !inside;
     }
   }
@@ -128,23 +136,37 @@ bool pointInsidePolygon(Point p, Polygon polygon) {
 }
 
 /// Calculates the union of `a` and `b`.
+///
+/// Using a "switch approach": Start at the first intersection, trace B
+/// until meeting another one. Switch to A and trace its points until traversing
+/// back into B. If this next intersection is not what we started
+/// from, continue switching. If it is, a path is finished. Repeat until there
+/// are no unvisited intersections left.
+///
+/// When compared to existing polygon clipping algorithms, the
+/// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
+/// seems to be very similar to what I've come up with.
 Iterable<Polygon> union(Polygon a, Polygon b) {
   if (!a.boundingBox.intersects(b.boundingBox)) return [a, b];
 
   forceClockwise(a);
   forceClockwise(b);
 
-  var p1 = a.points.last;
+  var aPoints =
+      a.points.map((e) => Point(e.x + 0.00001, e.y + 0.00001)).toList();
+
+  var p1 = aPoints.last;
   var inside = pointInsidePolygon(p1, b);
+
   var firstIsectExits = inside;
   var overlaps = 0;
 
   var intersects = <Intersection>[];
 
-  var nvert = a.points.length;
+  var nvert = aPoints.length;
   for (var i1 = 0, j1 = nvert - 1; i1 < nvert; j1 = i1++) {
-    var u = a.points.elementAt(j1);
-    var v = a.points.elementAt(i1);
+    var u = aPoints.elementAt(j1);
+    var v = aPoints.elementAt(i1);
 
     var rect = Rectangle.fromPoints(u, v);
 
@@ -185,19 +207,18 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     }
   }
 
-  if (overlaps == 0) {
-    if (inside) return [b]; // B contains A
+  final samePolarity = a.positive == b.positive;
 
-    if (pointInsidePolygon(b.points.first, a)) return [a]; // A contains B
+  if (overlaps == 0) {
+    if (firstIsectExits) return [b]; // B contains A
+
+    if (pointInsidePolygon(b.points.first, a) && samePolarity) {
+      // A contains B
+      return [a];
+    }
 
     return [a, b];
   }
-
-  // Using a "switch approach": Start at the first intersection, trace B
-  // until meeting another one. Switch to A and trace its points until meeting
-  // the next intersection. If this next intersection is not what we started
-  // from, continue switching. If it is, a path is finished. Repeat until there
-  // are no unvisited intersections left.
 
   var bSortedIsects = List<Intersection>.from(intersects)
     ..sort((ia, ib) {
@@ -219,7 +240,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   var results = <List<Point<int>>>[];
 
-  while (intersects.isNotEmpty) {
+  while (outgoings.isNotEmpty) {
     var initial = outgoings[0];
     var visited = {initial};
     var points = <Point<int>>[];
@@ -232,17 +253,24 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       // Trace B
       var bIndex = bSortedIsects.indexOf(aEnd);
       var bStart = aEnd;
-      var bEnd = bSortedIsects[(bIndex + 1) % intersects.length];
+      var bEnd = bSortedIsects[
+          (bIndex + (samePolarity ? 1 : intersects.length - 1)) %
+              intersects.length];
 
       points.add(forceIntPoint(bStart.intersect));
 
-      var steps = bEnd.bSegment - bStart.bSegment;
-      if (steps == 0 && bIndex + 1 == intersects.length) {
+      var steps = samePolarity
+          ? bEnd.bSegment - bStart.bSegment
+          : bStart.bSegment - bEnd.bSegment;
+
+      if (steps == 0 &&
+          (samePolarity ? (bIndex + 1) == intersects.length : bIndex == 0)) {
         steps = b.points.length;
       } else if (steps < 0) steps += b.points.length;
 
       for (var i = 0; i < steps; i++) {
-        points.add(b.points[(bStart.bSegment + i + 1) % b.points.length]);
+        points.add(b.points[
+            (bStart.bSegment + (samePolarity ? i + 1 : -i)) % b.points.length]);
       }
 
       visited.add(bEnd);
@@ -257,7 +285,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       steps = aEnd.aSegment - aStart.aSegment;
       if (steps == 0) {
         var diff = aIndex - aSrc;
-        if (diff != -1) {
+        if (samePolarity ? diff != -1 : diff != 1) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;
@@ -277,6 +305,10 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     intersects.removeWhere((i) => visited.contains(i));
     bSortedIsects.removeWhere((i) => visited.contains(i));
     outgoings.removeWhere((i) => visited.contains(i));
+  }
+
+  if (intersects.isNotEmpty) {
+    print('well this should not have happened');
   }
 
   // Figure out polarity, there can only be one positive polygon.
@@ -309,21 +341,68 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 /// and forces `polygon`s list of points not to repeat.
 Polygon removeDoubles(Polygon polygon) {
   var first = polygon.points.first;
+  var second = polygon.points.elementAt(1);
   var previous = first;
   var nPoints = <Point<int>>[first];
 
   for (var i = 1; i < polygon.points.length; i++) {
     var p = polygon.points[i];
     if (p != previous) {
+      // Check if polygon repeats
       if (p == first) {
-        break;
+        var next = polygon.points[(i + 1) % polygon.points.length];
+        if (i == polygon.points.length - 1 || next == second) {
+          // Points starts repeating at i
+          break;
+        }
       }
+
       previous = p;
       nPoints.add(p);
     }
   }
 
+  _removeDeadEnds(nPoints);
+
   return Polygon(points: nPoints, positive: polygon.positive);
+}
+
+/// Removes all parts of `points` that would come across infinitely thin
+/// when drawn on a canvas.
+void _removeDeadEnds(List<Point<int>> points) {
+  var len = points.length;
+
+  var i = 0;
+  while (i < len) {
+    var area = _area(points, i);
+
+    if (area == 0) {
+      // Found a dead end at i + 1
+      points.removeAt((i + 1) % len);
+      len--;
+      i--;
+
+      if (points[i % len] == points[(i + 1) % len]) {
+        points.removeAt(i % len);
+        len--;
+        i--;
+      }
+    } else {
+      i++;
+    }
+  }
+}
+
+int _area(List<Point<int>> points, int off) {
+  var signedArea = 0;
+
+  for (var i = 0, j = 2; i < 3; j = i++) {
+    var a = points[(i + off) % points.length];
+    var b = points[(j + off) % points.length];
+    signedArea += a.x * b.y - b.x * a.y;
+  }
+
+  return signedArea;
 }
 
 Polygon upscale(Polygon poly, int m) {

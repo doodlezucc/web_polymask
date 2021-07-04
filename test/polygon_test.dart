@@ -188,10 +188,6 @@ void main() {
       void _test2overlaps1hole(Polygon a, Polygon b) {
         var result = union(a, b);
 
-        // Convert points to SVG polygon data (debugging)
-        // print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
-        // print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
-
         expect(result.length, 2);
 
         expect(result.first.positive, true);
@@ -238,10 +234,6 @@ void main() {
 
       void _test2overlaps1hole(Polygon a, Polygon b, bool order) {
         var result = union(a, b);
-
-        // Convert points to SVG polygon data (debugging)
-        // print(result.first.points.map((p) => '${p.x},${p.y}').join(' '));
-        // print(result.last.points.map((p) => '${p.x},${p.y}').join(' '));
 
         expect(result.length, 2);
 
@@ -296,11 +288,6 @@ void main() {
       void _test2overlaps1hole(Polygon a, Polygon b, bool order) {
         var result = union(a, b);
 
-        // Convert points to SVG polygon data (debugging)
-        // for (var poly in result) {
-        //   print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-        // }
-
         expect(result.length, 3);
 
         expect(result.first.points,
@@ -318,7 +305,7 @@ void main() {
       _test2overlaps1hole(uShape, polyUp, false);
     });
 
-    test('Dealing with Doubles', () {
+    test('Dealing with Duplicates', () {
       var rect = Polygon(points: [
         Point(3, 5),
         Point(3, 8),
@@ -328,7 +315,6 @@ void main() {
 
       var expectedPoly = [
         ...polygon.points,
-        Point(7, 5),
         Point(3, 8),
       ];
 
@@ -342,11 +328,125 @@ void main() {
 
         expect(result.length, 1);
         expect(result.first.positive, true);
-        expect(result.first.points, unorderedEquals(expectedPoly));
+        expect(result.first.points, containsAll(expectedPoly));
       }
 
       _testDoubles(polygon, rect, true);
       _testDoubles(rect, polygon, false);
+    });
+
+    test('Create Hole Inside Polygon', () {
+      var holeInside = Polygon(points: [
+        Point(6, 3),
+        Point(6, 7),
+        Point(4, 4),
+      ], positive: false);
+
+      var polyAndHole = union(polygon, holeInside);
+      expect(polyAndHole, [polygon, holeInside]);
+    });
+
+    test('Remove from Positive', () {
+      var uShape = Polygon(points: [
+        Point(6, 3),
+        Point(9, 3),
+        Point(9, 7),
+        Point(6, 7),
+        Point(6, 6),
+        Point(8, 6),
+        Point(8, 4),
+        Point(6, 4),
+      ], positive: false);
+
+      var expectedPoly = [
+        ...polygon.points,
+        Point(7, 3), // Cut 1
+        Point(6, 3),
+        Point(6, 4),
+        Point(7, 4),
+        Point(7, 6), // Cut 2
+        Point(6, 6),
+        Point(6, 7),
+        Point(7, 7),
+      ];
+
+      var result = union(polygon, uShape);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expectedPoly));
+    });
+
+    test('Remove from Positive (Duplicates)', () {
+      var rect = Polygon(points: [
+        Point(3, 5),
+        Point(3, 8),
+        Point(7, 8),
+        Point(7, 5),
+      ], positive: false);
+
+      var expectedPoly = [
+        ...polygon.points.take(polygon.points.length - 1),
+        Point(7, 5),
+      ];
+
+      var result = union(polygon, rect);
+
+      // Convert points to SVG polygon data (debugging)
+      for (var poly in result) {
+        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+      }
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expectedPoly));
+    });
+
+    test('Remove Nothing at Corners', () {
+      var cut = Polygon(points: [
+        Point(1, 2),
+        Point(3, 5),
+        Point(7, 8),
+        Point(1, 8),
+      ], positive: false);
+
+      var result = union(polygon, cut);
+
+      // Convert points to SVG polygon data (debugging)
+      for (var poly in result) {
+        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+      }
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(polygon.points));
+    });
+
+    test('Remove at Corners', () {
+      var cut = Polygon(points: [
+        Point(1, 2),
+        Point(3, 5),
+        Point(7, 8),
+        Point(6, 3),
+      ], positive: false);
+
+      var expectedPoly = [
+        Point(1, 2),
+        Point(7, 2),
+        Point(7, 8),
+        Point(6, 3),
+      ];
+
+      var result = union(polygon, cut);
+
+      // Convert points to SVG polygon data (debugging)
+      for (var poly in result) {
+        print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
+      }
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expectedPoly));
     });
   });
 }
