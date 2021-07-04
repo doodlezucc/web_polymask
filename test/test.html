@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Testing</title>
+    <style>
+        html,
+        body {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        svg {
+            box-shadow: 0 0 10px #0006;
+        }
+
+        svg polygon {
+            fill: #5197ff;
+            stroke: #111111;
+        }
+    </style>
+</head>
+
+<body>
+    <span>
+        <input type="text" oninput="updatePolygon(this)">
+        <input type="range" oninput="updateViewBox(this)" min="1" max="3">
+    </span>
+
+    <svg id="svg" width="100%" height="100%" viewBox="0 0 10 10">
+        <polygon id="polygon"></polygon>
+    </svg>
+
+    <script>
+        const polygon = document.getElementById("polygon");
+        const svg = document.getElementById("svg");
+
+        function updatePolygon(input) {
+            polygon.setAttribute("points", input.value);
+        }
+
+        function updateViewBox(input) {
+            const val = Math.pow(10, input.value);
+            svg.setAttribute("viewBox", "0 0 " + val + " " + val);
+            polygon.style.strokeWidth = val / 100;
+        }
+    </script>
+</body>
+
+</html>
