@@ -343,7 +343,7 @@ void main() {
       ], positive: false);
 
       var polyAndHole = union(polygon, holeInside);
-      expect(polyAndHole, [polygon, holeInside]);
+      expect(polyAndHole, [holeInside, polygon]);
     });
 
     test('Remove from Positive', () {
@@ -481,6 +481,33 @@ void main() {
       expect(result.first.points, unorderedEquals(poly1));
       expect(result.elementAt(1).points, unorderedEquals(poly2));
       expect(result.last.points, unorderedEquals(poly3));
+    });
+
+    test('Remove Single Overlap, Single A-Segment', () {
+      var positive = Polygon(
+        points: [Point(1, 4), Point(1, 1), Point(6, 1), Point(6, 4)],
+      );
+
+      var cut = Polygon(
+          points: [Point(5, 5), Point(2, 5), Point(2, 2), Point(5, 2)],
+          positive: false);
+
+      var poly = [
+        Point(1, 1),
+        Point(6, 1),
+        Point(6, 4),
+        Point(5, 4),
+        Point(5, 2),
+        Point(2, 2),
+        Point(2, 4),
+        Point(1, 4),
+      ];
+
+      var result = union(positive, cut);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(poly));
     });
   });
 }

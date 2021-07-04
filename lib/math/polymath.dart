@@ -294,7 +294,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       steps = aEnd.aSegment - aStart.aSegment;
       if (steps == 0) {
         var diff = aIndex - aSrc;
-        if (samePolarity ? diff != -1 : diff != 1) {
+        if (samePolarity ? diff != -1 : !(diff == 1 && overlaps > 1)) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;
