@@ -14,8 +14,8 @@ class PolygonCanvas {
   final svg.SvgSvgElement root;
   final polypos = svg.ClipPathElement();
   final polyneg = svg.GElement();
+  final polyprev = svg.PolygonElement();
   bool captureInput;
-
   SvgPolygon activePolygon;
 
   PolygonCanvas(this.root, {this.captureInput = true}) {
@@ -25,8 +25,9 @@ class PolygonCanvas {
     root
       ..setAttribute('width', '100%')
       ..setAttribute('height', '100%')
-      ..append(polypos..id = 'polypos');
-    root.append(polyneg..id = 'polyneg');
+      ..append(polypos..id = 'polypos')
+      ..append(polyprev..id = 'polyprev');
+    root.querySelector('defs').append(polyneg..id = 'polyneg');
   }
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
@@ -55,6 +56,11 @@ class PolygonCanvas {
     });
   }
 
+  void _drawPreview() =>
+      polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
+
+  Element _poleParent(bool positive) => positive ? polypos : polyneg;
+
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
 
@@ -78,14 +84,19 @@ class PolygonCanvas {
 
         if (createNew) {
           // Start new polygon
+          var pole = !(ev as dynamic).shiftKey;
+
+          polyprev.classes.toggle('positive-pole', pole);
+
           activePolygon = SvgPolygon(
-            this,
+            _poleParent(pole),
             points: [p],
-            positive: !(ev as dynamic).shiftKey,
+            positive: pole,
           );
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
             activePolygon.addPoint(point);
+            _drawPreview();
             click = false;
           });
         } else {
@@ -110,6 +121,7 @@ class PolygonCanvas {
           moveStreamCtrl.add(fixedPoint(ev));
         } else if (activePolygon != null) {
           activePolygon.refreshSvg(fixedPoint(ev));
+          _drawPreview();
         }
       });
     }
@@ -128,6 +140,7 @@ class PolygonCanvas {
   }
 
   void addPolygon(SvgPolygon polygon) {
+    polyprev.setAttribute('points', '');
     if (polygon.points.length < 3) {
       polygon.dispose();
     } else {
@@ -143,7 +156,6 @@ class PolygonCanvas {
         // Merge all equally polarized polygons
         for (var other in _polygons.where((p) => p.positive == pole)) {
           var united = union(bigPoly, other);
-          print('Union made ${united.length} polygons');
           if (united.length == 1) {
             var merge = united.first;
             if (merge != other) {
@@ -173,7 +185,6 @@ class PolygonCanvas {
         // Subtract big poly from other poles
         for (var other in _polygons.where((p) => p.positive != pole)) {
           var united = union(other, bigPoly);
-          print('Difference made ${united.length} polygons');
           if (united.length == 1 && united.first.positive == pole) {
             // This opposite pole is now gone
             affected.add(other);
@@ -207,20 +218,18 @@ class PolygonCanvas {
       for (var aff in affected) {
         _polygons.remove(aff..dispose());
       }
-      _polygons.addAll(nPolys.map((p) => SvgPolygon.copy(this, p)));
-
-      print('$removeSrc | $removeBig | $inside');
+      _polygons.addAll(
+          nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
 
       if (removeSrc || removeBig) {
         polygon.dispose();
         if (bigPoly != polygon && (inside || !removeBig)) {
-          _polygons.add(SvgPolygon.copy(this, bigPoly));
+          _polygons
+              .add(SvgPolygon.copy(_poleParent(bigPoly.positive), bigPoly));
         }
       } else {
         _polygons.add(polygon);
       }
-
-      print(_polygons.length);
     }
   }
 }
