@@ -135,6 +135,14 @@ bool pointInsidePolygon(Point p, Polygon polygon, {bool allowEdges = false}) {
   return inside;
 }
 
+class Intersection {
+  final int aSegment;
+  final int bSegment;
+  final Point<double> intersect;
+
+  Intersection(this.aSegment, this.bSegment, this.intersect);
+}
+
 /// Calculates the union of `a` and `b`.
 ///
 /// Using a "switch approach": Start at the first intersection, trace B
@@ -209,12 +217,13 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   final samePolarity = a.positive == b.positive;
 
+  // The simple cases
   if (overlaps == 0) {
     if (firstIsectExits) return [b]; // B contains A
 
-    if (pointInsidePolygon(b.points.first, a) && samePolarity) {
+    if (pointInsidePolygon(b.points.first, a)) {
       // A contains B
-      return [a];
+      return samePolarity ? [a] : [b, a];
     }
 
     return [a, b];
@@ -307,10 +316,12 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     outgoings.removeWhere((i) => visited.contains(i));
   }
 
+  results.removeWhere((poly) => poly.length < 3);
+
   if (samePolarity) {
-    // Figure out polarity, there can only be one positive polygon.
+    // Figure out polarity, there can only be one polygon of A and B's pole.
     var bigBox = pointsToBoundingBox(results.first);
-    var firstIsPositive = true;
+    var firstIsPositive = a.positive;
 
     var out = List<Polygon>.filled(results.length, null);
 
@@ -321,7 +332,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       var isPositive = box.containsRectangle(bigBox);
 
       if (isPositive) {
-        firstIsPositive = false;
+        firstIsPositive = !a.positive;
         bigBox = box;
       }
 
@@ -370,8 +381,20 @@ Polygon removeDoubles(Polygon polygon) {
 
 /// Removes all parts of `points` that would come across infinitely thin
 /// when drawn on a canvas.
+///
+/// Not very efficient, but it work :)
 void _removeDeadEnds(List<Point<int>> points) {
   var len = points.length;
+
+  int _area(List<Point<int>> points, int off) {
+    var signedArea = 0;
+    for (var i = 0, j = 2; i < 3; j = i++) {
+      var a = points[(i + off) % len];
+      var b = points[(j + off) % len];
+      signedArea += a.x * b.y - b.x * a.y;
+    }
+    return signedArea;
+  }
 
   var i = 0;
   while (i < len) {
@@ -394,29 +417,10 @@ void _removeDeadEnds(List<Point<int>> points) {
   }
 }
 
-int _area(List<Point<int>> points, int off) {
-  var signedArea = 0;
-
-  for (var i = 0, j = 2; i < 3; j = i++) {
-    var a = points[(i + off) % points.length];
-    var b = points[(j + off) % points.length];
-    signedArea += a.x * b.y - b.x * a.y;
-  }
-
-  return signedArea;
-}
-
+/// Returns `poly` with all points multiplied by `m`.
 Polygon upscale(Polygon poly, int m) {
   return Polygon(
     points: poly.points.map((p) => p * m).toList(),
     positive: poly.positive,
   );
-}
-
-class Intersection {
-  final int aSegment;
-  final int bSegment;
-  final Point<double> intersect;
-
-  Intersection(this.aSegment, this.bSegment, this.intersect);
 }

@@ -55,64 +55,6 @@ class PolygonCanvas {
     });
   }
 
-  void addPolygon(SvgPolygon polygon) {
-    if (polygon.points.length < 3) {
-      polygon.dispose();
-    } else {
-      var affected = <SvgPolygon>{};
-      var nPolys = <Polygon>[];
-      Polygon bigPoly = polygon;
-      var removeSrc = false;
-
-      for (var i = 0; i < _polygons.length; i++) {
-        var other = _polygons[i];
-
-        if (other.positive) {
-          var united = union(bigPoly, other);
-          print('Union made ${united.length} polygons');
-          if (united.length == 1) {
-            var merge = united.first;
-            if (merge != other) {
-              affected.add(other);
-
-              if (merge != bigPoly) {
-                // There's one big shape now
-                removeSrc = true;
-                bigPoly = merge;
-              }
-            } else {
-              removeSrc = true;
-            }
-          } else if (united.length == 2 && united.first == bigPoly) {
-            // No overlapping
-          } else {
-            // Wow, cool new shape with holes and stuff
-            affected.add(other);
-            removeSrc = true;
-            bigPoly = united.firstWhere((p) => p.positive);
-            nPolys.addAll(united.where((p) => !p.positive));
-          }
-        }
-      }
-
-      for (var aff in affected) {
-        _polygons.remove(aff..dispose());
-      }
-      _polygons.addAll(nPolys.map((p) => SvgPolygon.copy(this, p)));
-
-      if (removeSrc) {
-        polygon.dispose();
-        if (bigPoly != polygon) {
-          _polygons.add(SvgPolygon.copy(this, bigPoly));
-        }
-      } else {
-        _polygons.add(polygon);
-      }
-
-      print(_polygons.length);
-    }
-  }
-
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
 
@@ -183,5 +125,102 @@ class PolygonCanvas {
         root.onTouchStart,
         window.onTouchMove,
         window.onTouchEnd);
+  }
+
+  void addPolygon(SvgPolygon polygon) {
+    if (polygon.points.length < 3) {
+      polygon.dispose();
+    } else {
+      var pole = polygon.positive;
+      var affected = <SvgPolygon>{};
+      var nPolys = <Polygon>[];
+      Polygon bigPoly = polygon;
+      var removeSrc = false;
+      var removeBig = false;
+      var inside = false;
+
+      void equalPole() {
+        // Merge all equally polarized polygons
+        for (var other in _polygons.where((p) => p.positive == pole)) {
+          var united = union(bigPoly, other);
+          print('Union made ${united.length} polygons');
+          if (united.length == 1) {
+            var merge = united.first;
+            if (merge != other) {
+              affected.add(other);
+
+              if (merge != bigPoly) {
+                // There's one big shape now
+                removeSrc = true;
+                bigPoly = merge;
+              }
+            } else {
+              removeSrc = true;
+            }
+          } else if (united.length == 2 && united.first == bigPoly) {
+            // No overlapping
+          } else {
+            // Wow, cool new shape with holes and stuff
+            affected.add(other);
+            removeSrc = true;
+            bigPoly = united.firstWhere((p) => p.positive);
+            nPolys.addAll(united.where((p) => !p.positive));
+          }
+        }
+      }
+
+      void diffPole() {
+        // Subtract big poly from other poles
+        for (var other in _polygons.where((p) => p.positive != pole)) {
+          var united = union(other, bigPoly);
+          print('Difference made ${united.length} polygons');
+          if (united.length == 1 && united.first.positive == pole) {
+            // This opposite pole is now gone
+            affected.add(other);
+          } else if (united.length == 2 && united.any((p) => p == bigPoly)) {
+            // No overlapping
+            if (united.first == bigPoly) {
+              // A contains B
+              inside = true;
+            }
+          } else {
+            // Opposite pole gets transformed, maybe split into multiple
+            affected.add(other);
+            removeBig = !pole;
+            nPolys.addAll(united);
+          }
+        }
+      }
+
+      if (pole) {
+        diffPole();
+        equalPole();
+      } else {
+        equalPole();
+        diffPole();
+      }
+
+      if (!pole && nPolys.isEmpty && !inside) {
+        removeBig = true;
+      }
+
+      for (var aff in affected) {
+        _polygons.remove(aff..dispose());
+      }
+      _polygons.addAll(nPolys.map((p) => SvgPolygon.copy(this, p)));
+
+      print('$removeSrc | $removeBig | $inside');
+
+      if (removeSrc || removeBig) {
+        polygon.dispose();
+        if (bigPoly != polygon && (inside || !removeBig)) {
+          _polygons.add(SvgPolygon.copy(this, bigPoly));
+        }
+      } else {
+        _polygons.add(polygon);
+      }
+
+      print(_polygons.length);
+    }
   }
 }
