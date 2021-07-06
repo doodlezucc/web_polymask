@@ -42,6 +42,7 @@ class PolygonCanvas {
             if (activePolygon != null) {
               activePolygon.dispose();
               activePolygon = null;
+              _hidePreview();
             }
             return;
 
@@ -56,8 +57,12 @@ class PolygonCanvas {
     });
   }
 
-  void _drawPreview() =>
-      polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
+  void _hidePreview() => polyprev.setAttribute('points', '');
+
+  void _drawPreview([Point<int> extra]) {
+    polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
+    polyprev.classes.toggle('poly-invalid', !activePolygon.isSimple(extra));
+  }
 
   Element _poleParent(bool positive) => positive ? polypos : polyneg;
 
@@ -120,8 +125,9 @@ class PolygonCanvas {
         if (moveStreamCtrl != null) {
           moveStreamCtrl.add(fixedPoint(ev));
         } else if (activePolygon != null) {
-          activePolygon.refreshSvg(fixedPoint(ev));
-          _drawPreview();
+          var p = fixedPoint(ev);
+          activePolygon.refreshSvg(p);
+          _drawPreview(p);
         }
       });
     }
@@ -140,8 +146,8 @@ class PolygonCanvas {
   }
 
   void addPolygon(SvgPolygon polygon) {
-    polyprev.setAttribute('points', '');
-    if (polygon.points.length < 3) {
+    _hidePreview();
+    if (polygon.points.length < 3 || !polygon.isSimple()) {
       polygon.dispose();
     } else {
       var pole = polygon.positive;

@@ -50,3 +50,6 @@ svg #polyprev {
 svg #polyprev.positive-pole {
   fill: url(#pattern);
 }
+svg #polyprev.poly-invalid {
+  stroke: #f66;
+}
