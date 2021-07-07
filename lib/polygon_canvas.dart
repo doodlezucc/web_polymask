@@ -14,22 +14,18 @@ import 'interactive/svg_polygon.dart';
 class PolygonCanvas with CanvasLoader {
   final _polygons = <SvgPolygon>[];
   final svg.SvgSvgElement root;
-  final polypos = svg.ClipPathElement();
-  final polyneg = svg.GElement();
-  final polyprev = svg.PolygonElement();
+  final svg.SvgElement polypos;
+  final svg.SvgElement polyneg;
+  final svg.SvgElement polyprev;
   bool captureInput;
   SvgPolygon activePolygon;
 
-  PolygonCanvas(this.root, {this.captureInput = true}) {
+  PolygonCanvas(this.root, {this.captureInput = true})
+      : polypos = root.querySelector('#polypos'),
+        polyneg = root.querySelector('#polyneg'),
+        polyprev = root.querySelector('#polyprev') {
     _initKeyListener();
     _initCursorControls();
-
-    root
-      ..setAttribute('width', '100%')
-      ..setAttribute('height', '100%')
-      ..append(polypos..id = 'polypos')
-      ..append(polyprev..id = 'polyprev');
-    root.querySelector('defs').append(polyneg..id = 'polyneg');
   }
 
   void clear() {
