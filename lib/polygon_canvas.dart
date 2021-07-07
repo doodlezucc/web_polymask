@@ -17,10 +17,11 @@ class PolygonCanvas with CanvasLoader {
   final svg.SvgElement polypos;
   final svg.SvgElement polyneg;
   final svg.SvgElement polyprev;
+  void Function() onChange;
   bool captureInput;
   SvgPolygon activePolygon;
 
-  PolygonCanvas(this.root, {this.captureInput = true})
+  PolygonCanvas(this.root, {this.captureInput = true, this.onChange})
       : polypos = root.querySelector('#polypos'),
         polyneg = root.querySelector('#polyneg'),
         polyprev = root.querySelector('#polyprev') {
@@ -254,6 +255,12 @@ class PolygonCanvas with CanvasLoader {
         }
       } else {
         _polygons.add(polygon);
+      }
+
+      if (affected.isNotEmpty ||
+          nPolys.isNotEmpty ||
+          !(removeSrc || removeBig)) {
+        if (onChange != null) onChange();
       }
     }
   }
