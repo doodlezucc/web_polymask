@@ -6,10 +6,12 @@ import 'dart:svg' as svg;
 import 'package:web_polymask/math/polymath.dart';
 import 'package:web_polymask/math/point_convert.dart';
 import 'package:web_polymask/math/polygon.dart';
+import 'package:web_polymask/polygon_canvas_data.dart';
 
+import 'binary.dart';
 import 'interactive/svg_polygon.dart';
 
-class PolygonCanvas {
+class PolygonCanvas with CanvasLoader {
   final _polygons = <SvgPolygon>[];
   final svg.SvgSvgElement root;
   final polypos = svg.ClipPathElement();
@@ -29,6 +31,27 @@ class PolygonCanvas {
       ..append(polyprev..id = 'polyprev');
     root.querySelector('defs').append(polyneg..id = 'polyneg');
   }
+
+  void clear() {
+    _polygons.forEach((element) => element.dispose());
+    _polygons.clear();
+  }
+
+  @override
+  void fromData(String base64) {
+    clear();
+    canvasFromData(
+      base64,
+      (positive, points) => _polygons.add(SvgPolygon(
+        _poleParent(positive),
+        positive: positive,
+        points: points,
+      )),
+    );
+  }
+
+  @override
+  String toData() => canvasToData(_polygons);
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
