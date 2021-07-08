@@ -4,7 +4,10 @@ import 'dart:js_util';
 import 'package:web_polymask/polygon_canvas.dart';
 
 void main() {
-  var canvas = PolygonCanvas(querySelector('svg'));
+  var canvas = PolygonCanvas(
+    querySelector('svg'),
+    acceptStartEvent: (ev) => (ev is MouseEvent) && ev.button == 0,
+  );
 
   window.onKeyDown.listen((ev) {
     if (ev.ctrlKey) {

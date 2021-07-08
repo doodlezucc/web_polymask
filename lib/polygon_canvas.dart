@@ -18,11 +18,18 @@ class PolygonCanvas with CanvasLoader {
   final svg.SvgElement polyneg;
   final svg.SvgElement polyprev;
   void Function() onChange;
+  bool Function(Event ev) acceptStartEvent;
+  Point Function(Point p) modifyPoint;
   bool captureInput;
   SvgPolygon activePolygon;
 
-  PolygonCanvas(this.root, {this.captureInput = true, this.onChange})
-      : polypos = root.querySelector('#polypos'),
+  PolygonCanvas(
+    this.root, {
+    this.captureInput = true,
+    this.onChange,
+    this.acceptStartEvent,
+    this.modifyPoint,
+  })  : polypos = root.querySelector('#polypos'),
         polyneg = root.querySelector('#polyneg'),
         polyprev = root.querySelector('#polyprev') {
     _initKeyListener();
@@ -95,10 +102,16 @@ class PolygonCanvas with CanvasLoader {
       Stream<T> moveEvent,
       Stream<T> endEvent,
     ) {
-      Point<int> fixedPoint(T ev) => forceIntPoint(evToPoint(ev));
+      Point<int> fixedPoint(T ev) {
+        var p = evToPoint(ev);
+        if (modifyPoint != null) p = modifyPoint(p);
+        return forceIntPoint(p);
+      }
 
       startEvent.listen((ev) async {
-        if (!captureInput || !ev.path.any((e) => e == root)) return;
+        if (!captureInput ||
+            (acceptStartEvent != null && !acceptStartEvent(ev)) ||
+            !ev.path.any((e) => e == root)) return;
 
         ev.preventDefault();
         document.activeElement.blur();
