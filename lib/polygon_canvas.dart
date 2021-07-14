@@ -22,6 +22,7 @@ class PolygonCanvas with CanvasLoader {
   Point Function(Point p) modifyPoint;
   bool captureInput;
   SvgPolygon activePolygon;
+  int cropMargin;
 
   PolygonCanvas(
     this.root, {
@@ -29,6 +30,7 @@ class PolygonCanvas with CanvasLoader {
     this.onChange,
     this.acceptStartEvent,
     this.modifyPoint,
+    this.cropMargin = 2,
   })  : polypos = root.querySelector('#polypos'),
         polyneg = root.querySelector('#polyneg'),
         polyprev = root.querySelector('#polyprev') {
@@ -36,14 +38,14 @@ class PolygonCanvas with CanvasLoader {
     _initCursorControls();
   }
 
-  void clear() {
+  void clear({bool triggerChangeEvent = true}) {
     _polygons.forEach((element) => element.dispose());
     _polygons.clear();
   }
 
   @override
   void fromData(String base64) {
-    clear();
+    clear(triggerChangeEvent: false);
     canvasFromData(
       base64,
       (positive, points) => _polygons.add(SvgPolygon(
@@ -260,14 +262,17 @@ class PolygonCanvas with CanvasLoader {
       _polygons.addAll(
           nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
 
+      polygon.dispose();
       if (removeSrc || removeBig) {
-        polygon.dispose();
         if (bigPoly != polygon && (inside || !removeBig)) {
-          _polygons
-              .add(SvgPolygon.copy(_poleParent(bigPoly.positive), bigPoly));
+          if (!bigPoly.positive) {
+            _polygons.add(SvgPolygon.copy(_poleParent(false), bigPoly));
+          } else {
+            _addCroppedParts(bigPoly);
+          }
         }
       } else {
-        _polygons.add(polygon);
+        _addCroppedParts(polygon);
       }
 
       if (affected.isNotEmpty ||
@@ -275,6 +280,22 @@ class PolygonCanvas with CanvasLoader {
           !(removeSrc || removeBig)) {
         if (onChange != null) onChange();
       }
+    }
+  }
+
+  void _addCroppedParts(Polygon polygon) {
+    var w = root.parent.clientWidth - cropMargin;
+    var h = root.parent.clientHeight - cropMargin;
+    var cropRect = Polygon(points: [
+      Point(cropMargin, cropMargin),
+      Point(w, cropMargin),
+      Point(w, h),
+      Point(cropMargin, h),
+    ]);
+    var result = intersection(cropRect, polygon);
+
+    for (var poly in result) {
+      _polygons.add(SvgPolygon.copy(_poleParent(true), poly));
     }
   }
 }
