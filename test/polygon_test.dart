@@ -20,6 +20,17 @@ void main() {
     Point(4, 4),
   ]);
 
+  var uShape = Polygon(points: [
+    Point(6, 3),
+    Point(9, 3),
+    Point(9, 7),
+    Point(6, 7),
+    Point(6, 6),
+    Point(8, 6),
+    Point(8, 4),
+    Point(6, 4),
+  ]);
+
   test('Polygon Bounding Box', () {
     expect(polygon.boundingBox, Rectangle(1, 2, 6, 6));
   });
@@ -121,6 +132,7 @@ void main() {
       expect(result.length, 1);
       expect(result.first.points, unorderedEquals(expectedPoints));
     });
+
     test('1 Overlap (Overlapping Starting Point)', () {
       var rect = Polygon(points: [
         Point(5, 6),
@@ -165,17 +177,6 @@ void main() {
     });
 
     test('2 Overlaps, 1 Hole', () {
-      var uShape = Polygon(points: [
-        Point(6, 3),
-        Point(9, 3),
-        Point(9, 7),
-        Point(6, 7),
-        Point(6, 6),
-        Point(8, 6),
-        Point(8, 4),
-        Point(6, 4),
-      ]);
-
       var expectedPoly = [
         ...polygon.points,
         Point(7, 3),
@@ -202,7 +203,7 @@ void main() {
     });
 
     test('2 Overlaps, 1 Hole (Overlapping Starting Point)', () {
-      var uShape = Polygon(points: [
+      var uShape2 = Polygon(points: [
         Point(6, 3),
         Point(9, 3),
         Point(9, 10),
@@ -246,8 +247,8 @@ void main() {
             unorderedEquals(order ? expectedHole : expectedPoly));
       }
 
-      _test2overlaps1hole(polygon, uShape, true);
-      _test2overlaps1hole(uShape, polygon, false);
+      _test2overlaps1hole(polygon, uShape2, true);
+      _test2overlaps1hole(uShape2, polygon, false);
     });
 
     test('2 Holes', () {
@@ -510,10 +511,90 @@ void main() {
       expect(result.first.points, unorderedEquals(poly));
     });
   });
+
+  group('Intersection', () {
+    test('One Contains the Other', () {
+      var bigSquare = Polygon(points: [
+        Point(0, 0),
+        Point(10, 0),
+        Point(10, 10),
+        Point(0, 10),
+      ]);
+
+      var result = intersection(bigSquare, polygon);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(polygon.points));
+      expect(result, intersection(polygon, bigSquare));
+    });
+
+    test('1 Overlap', () {
+      // Intersect with 7,2 -> 7,8
+      var rect = Polygon(points: [
+        Point(5, 3),
+        Point(5, 5),
+        Point(9, 5),
+        Point(9, 3),
+      ]);
+
+      var expected = [Point(5, 3), Point(5, 5), Point(7, 5), Point(7, 3)];
+
+      var result = intersection(rect, polygon);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expected));
+      expect(
+          intersection(polygon, rect).first.points, unorderedEquals(expected));
+    });
+
+    test('Handle Corners', () {
+      var rect = Polygon(points: [
+        Point(7, 8),
+        Point(3, 8),
+        Point(3, 5),
+        Point(7, 5),
+      ]);
+
+      var expected = [Point(7, 8), Point(3, 5), Point(7, 5)];
+
+      var result = intersection(rect, polygon);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expected));
+    });
+
+    test('2 Overlaps, 0 Holes', () {
+      var diagonal =
+          Polygon(points: [Point(4, 1), Point(5, 1), Point(8, 4), Point(8, 5)]);
+
+      var expectedPoints = [Point(5, 2), Point(6, 2), Point(7, 3), Point(7, 4)];
+
+      var result = intersection(polygon, diagonal);
+
+      expect(result.length, 1);
+      expect(result.first.positive, true);
+      expect(result.first.points, unorderedEquals(expectedPoints));
+    });
+
+    test('2 Overlaps, 1 Hole', () {
+      var poly1 = [Point(6, 3), Point(7, 3), Point(7, 4), Point(6, 4)];
+      var poly2 = [Point(6, 6), Point(7, 6), Point(7, 7), Point(6, 7)];
+
+      var result = intersection(polygon, uShape);
+
+      expect(result.length, 2);
+      expect(result.map((e) => e.positive), [true, true]);
+      expect(result.first.points, unorderedEquals(poly1));
+      expect(result.last.points, unorderedEquals(poly2));
+    });
+  });
 }
 
 /// Prints a list of polygons as SVG polygon data (debugging).
-void printUnionResults(Iterable<Polygon> result) {
+void printPolys(Iterable<Polygon> result) {
   for (var poly in result) {
     print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
   }

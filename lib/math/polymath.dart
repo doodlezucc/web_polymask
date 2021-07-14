@@ -143,8 +143,16 @@ class Intersection {
   Intersection(this.aSegment, this.bSegment, this.intersect);
 }
 
-/// Calculates the union of `a` and `b`.
-///
+/// Calculates the union of `a` and `b` (A ∪ B).
+Iterable<Polygon> union(Polygon a, Polygon b) {
+  return _operation(a, b, true);
+}
+
+/// Calculates the intersection of `a` and `b` (A ∩ B).
+Iterable<Polygon> intersection(Polygon a, Polygon b) {
+  return _operation(a, b, false);
+}
+
 /// Using a "switch approach": Start at the first intersection, trace B
 /// until meeting another one. Switch to A and trace its points until traversing
 /// back into B. If this next intersection is not what we started
@@ -154,7 +162,7 @@ class Intersection {
 /// When compared to existing polygon clipping algorithms, the
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
-Iterable<Polygon> union(Polygon a, Polygon b) {
+Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
   if (!a.boundingBox.intersects(b.boundingBox)) return [a, b];
 
   forceClockwise(a);
@@ -219,11 +227,11 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   // The simple cases
   if (overlaps == 0) {
-    if (firstIsectExits) return [b]; // B contains A
+    if (firstIsectExits) return [union ? b : a]; // B contains A
 
     if (pointInsidePolygon(b.points.first, a)) {
       // A contains B
-      return samePolarity ? [a] : [b, a];
+      return samePolarity ? [union ? a : b] : [b, a];
     }
 
     return [a, b];
@@ -242,7 +250,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
     });
 
   var outgoings = <Intersection>[];
-  var start = firstIsectExits ? 1 : 0;
+  var start = (firstIsectExits ^ !union) ? 1 : 0; // Fancy XOR operator
   for (var i = start; i < intersects.length; i += 2) {
     outgoings.add(intersects[i]);
   }
@@ -294,7 +302,8 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
       steps = aEnd.aSegment - aStart.aSegment;
       if (steps == 0) {
         var diff = aIndex - aSrc;
-        if (samePolarity ? diff != -1 : !(diff == 1 && overlaps > 1)) {
+        if (union &&
+            (samePolarity ? diff != -1 : !(diff == 1 && overlaps > 1))) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;
@@ -318,7 +327,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 
   results.removeWhere((poly) => poly.length < 3);
 
-  if (samePolarity) {
+  if (union && samePolarity) {
     // Figure out polarity, there can only be one polygon of A and B's pole.
     var bigBox = pointsToBoundingBox(results.first);
     var firstIsPositive = a.positive;
