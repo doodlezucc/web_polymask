@@ -262,8 +262,8 @@ class PolygonCanvas with CanvasLoader {
       _polygons.addAll(
           nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
 
-      polygon.dispose();
       if (removeSrc || removeBig) {
+        polygon.dispose();
         if (bigPoly != polygon && (inside || !removeBig)) {
           if (!bigPoly.positive) {
             _polygons.add(SvgPolygon.copy(_poleParent(false), bigPoly));
@@ -272,7 +272,12 @@ class PolygonCanvas with CanvasLoader {
           }
         }
       } else {
-        _addCroppedParts(polygon);
+        if (!polygon.positive) {
+          _polygons.add(polygon);
+        } else {
+          polygon.dispose();
+          _addCroppedParts(polygon);
+        }
       }
 
       if (affected.isNotEmpty ||
