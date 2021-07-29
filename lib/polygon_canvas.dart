@@ -72,6 +72,7 @@ class PolygonCanvas with CanvasLoader {
               activePolygon.dispose();
               activePolygon = null;
               _hidePreview();
+              ev.preventDefault();
             }
             return;
 
@@ -79,6 +80,7 @@ class PolygonCanvas with CanvasLoader {
             if (activePolygon != null) {
               addPolygon(activePolygon..refreshSvg());
               activePolygon = null;
+              ev.preventDefault();
             }
             return;
         }
