@@ -137,9 +137,12 @@ class PolygonCanvas with CanvasLoader {
           );
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
-            activePolygon.addPoint(point);
-            _drawPreview();
-            click = false;
+            // Polygon could have been cancelled by user
+            if (activePolygon != null) {
+              activePolygon.addPoint(point);
+              _drawPreview();
+              click = false;
+            }
           });
         } else {
           // Add single point to active polygon
