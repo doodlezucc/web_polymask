@@ -149,6 +149,7 @@ Iterable<Polygon> union(Polygon a, Polygon b) {
 }
 
 /// Calculates the intersection of `a` and `b` (A ∩ B).
+/// If they intersect, all returned polygons share the pole of `a`.
 Iterable<Polygon> intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
@@ -163,7 +164,7 @@ Iterable<Polygon> intersection(Polygon a, Polygon b) {
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
 Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
-  if (!a.boundingBox.intersects(b.boundingBox)) return [a, b];
+  if (!a.boundingBox.intersects(b.boundingBox)) return union ? [a, b] : [];
 
   forceClockwise(a);
   forceClockwise(b);
@@ -223,7 +224,8 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
     }
   }
 
-  final samePolarity = a.positive == b.positive;
+  // Always handle intersection operation as same pole
+  final samePole = !union || a.positive == b.positive;
 
   // The simple cases
   if (overlaps == 0) {
@@ -231,10 +233,10 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
 
     if (pointInsidePolygon(b.points.first, a)) {
       // A contains B
-      return samePolarity ? [union ? a : b] : [b, a];
+      return union ? (samePole ? [a] : [b, a]) : [b];
     }
 
-    return [a, b];
+    return union ? [a, b] : [];
   }
 
   var bSortedIsects = List<Intersection>.from(intersects)
@@ -271,23 +273,23 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       var bIndex = bSortedIsects.indexOf(aEnd);
       var bStart = aEnd;
       var bEnd = bSortedIsects[
-          (bIndex + (samePolarity ? 1 : intersects.length - 1)) %
+          (bIndex + (samePole ? 1 : intersects.length - 1)) %
               intersects.length];
 
       points.add(forceIntPoint(bStart.intersect));
 
-      var steps = samePolarity
+      var steps = samePole
           ? bEnd.bSegment - bStart.bSegment
           : bStart.bSegment - bEnd.bSegment;
 
       if (steps == 0 &&
-          (samePolarity ? (bIndex + 1) == intersects.length : bIndex == 0)) {
+          (samePole ? (bIndex + 1) == intersects.length : bIndex == 0)) {
         steps = b.points.length;
       } else if (steps < 0) steps += b.points.length;
 
       for (var i = 0; i < steps; i++) {
         points.add(b.points[
-            (bStart.bSegment + (samePolarity ? i + 1 : -i)) % b.points.length]);
+            (bStart.bSegment + (samePole ? i + 1 : -i)) % b.points.length]);
       }
 
       visited.add(bEnd);
@@ -303,7 +305,7 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       if (steps == 0) {
         var diff = aIndex - aSrc;
         if (union &&
-            (samePolarity ? diff != -1 : !(diff == 1 && overlaps > 1))) {
+            (samePole ? diff != -1 : !(diff.abs() == 1 && overlaps > 1))) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;
@@ -327,12 +329,12 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
 
   results.removeWhere((poly) => poly.length < 3);
 
-  if (union && samePolarity) {
-    // Figure out polarity, there can only be one polygon of A and B's pole.
+  if (union && samePole) {
+    // Figure out pole, there can only be one polygon of A's/B's pole.
     var bigBox = pointsToBoundingBox(results.first);
     var firstIsPositive = a.positive;
 
-    var out = List<Polygon>.filled(results.length, null);
+    var out = <Polygon>[null];
 
     for (var i = 1; i < results.length; i++) {
       var poly = results[i];
@@ -345,7 +347,8 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
         bigBox = box;
       }
 
-      out[i] = removeDoubles(Polygon(points: poly, positive: isPositive));
+      var polished = removeDoubles(Polygon(points: poly, positive: isPositive));
+      if (polished != null) out.add(polished);
     }
 
     out[0] = removeDoubles(
@@ -382,6 +385,8 @@ Polygon removeDoubles(Polygon polygon) {
       nPoints.add(p);
     }
   }
+
+  if (nPoints.isEmpty) return null;
 
   _removeDeadEnds(nPoints);
 

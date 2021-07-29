@@ -7,6 +7,7 @@ void main() {
   var canvas = PolygonCanvas(
     querySelector('svg'),
     acceptStartEvent: (ev) => (ev is MouseEvent) && ev.button == 0,
+    cropMargin: 40,
   );
 
   window.onKeyDown.listen((ev) {

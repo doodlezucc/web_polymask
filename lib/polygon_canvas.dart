@@ -182,113 +182,104 @@ class PolygonCanvas with CanvasLoader {
 
   void addPolygon(SvgPolygon polygon) {
     _hidePreview();
-    if (polygon.points.length < 3 || !polygon.isSimple()) {
-      polygon.dispose();
-    } else {
-      var pole = polygon.positive;
-      var affected = <SvgPolygon>{};
-      var nPolys = <Polygon>[];
-      Polygon bigPoly = polygon;
-      var removeSrc = false;
-      var removeBig = false;
-      var inside = false;
-
-      void equalPole() {
-        // Merge all equally polarized polygons
-        for (var other in _polygons.where((p) => p.positive == pole)) {
-          var united = union(bigPoly, other);
-          if (united.length == 1) {
-            var merge = united.first;
-            if (merge != other) {
-              affected.add(other);
-
-              if (merge != bigPoly) {
-                // There's one big shape now
-                removeSrc = true;
-                bigPoly = merge;
-              }
-            } else {
-              removeSrc = true;
-            }
-          } else if (united.length == 2 && united.first == bigPoly) {
-            // No overlapping
-          } else {
-            // Wow, cool new shape with holes and stuff
-            affected.add(other);
-            removeSrc = true;
-            bigPoly = united.firstWhere((p) => p.positive);
-            nPolys.addAll(united.where((p) => !p.positive));
-          }
-        }
-      }
-
-      void diffPole() {
-        // Subtract big poly from other poles
-        for (var other in _polygons.where((p) => p.positive != pole)) {
-          var united = union(other, bigPoly);
-          if (united.length == 1 && united.first.positive == pole) {
-            // This opposite pole is now gone
-            affected.add(other);
-          } else if (united.length == 2 && united.any((p) => p == bigPoly)) {
-            // No overlapping
-            if (united.first == bigPoly) {
-              // A contains B
-              inside = true;
-            }
-          } else {
-            // Opposite pole gets transformed, maybe split into multiple
-            affected.add(other);
-            removeBig = !pole;
-            nPolys.addAll(united);
-          }
-        }
-      }
-
-      if (pole) {
-        diffPole();
-        equalPole();
-      } else {
-        equalPole();
-        diffPole();
-      }
-
-      if (!pole && nPolys.isEmpty && !inside) {
-        removeBig = true;
-      }
-
-      for (var aff in affected) {
-        _polygons.remove(aff..dispose());
-      }
-      _polygons.addAll(
-          nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
-
-      if (removeSrc || removeBig) {
-        polygon.dispose();
-        if (bigPoly != polygon && (inside || !removeBig)) {
-          if (!bigPoly.positive) {
-            _polygons.add(SvgPolygon.copy(_poleParent(false), bigPoly));
-          } else {
-            _addCroppedParts(bigPoly);
-          }
+    if (polygon.points.length >= 3 && polygon.isSimple()) {
+      if (polygon.positive) {
+        var cropped = _cropPolygon(polygon);
+        for (var poly in cropped) {
+          _mergePolygon(poly);
         }
       } else {
-        if (!polygon.positive) {
-          _polygons.add(polygon);
+        // No need to crop negative polygons
+        _mergePolygon(polygon);
+      }
+    }
+    polygon.dispose();
+  }
+
+  void _mergePolygon(Polygon polygon) {
+    var pole = polygon.positive;
+    var affected = <SvgPolygon>{};
+    var nPolys = <Polygon>[];
+    var removeMerge = false;
+    var inside = false;
+
+    void equalPole() {
+      // Merge all equally polarized polygons
+      for (var other in _polygons.where((p) => p.positive == pole)) {
+        var united = union(polygon, other);
+        if (united.length == 1) {
+          var merge = united.first;
+          if (merge != other) {
+            affected.add(other);
+
+            if (merge != polygon) {
+              // There's one big shape now
+              polygon = merge;
+            }
+          } else {
+            removeMerge = true;
+          }
+        } else if (united.length == 2 && united.first == polygon) {
+          // No overlapping
         } else {
-          polygon.dispose();
-          _addCroppedParts(polygon);
+          // Wow, cool new shape with holes and stuff
+          affected.add(other);
+          polygon = united.firstWhere((p) => p.positive);
+          nPolys.addAll(united.where((p) => !p.positive));
         }
       }
+    }
 
-      if (affected.isNotEmpty ||
-          nPolys.isNotEmpty ||
-          !(removeSrc || removeBig)) {
-        if (onChange != null) onChange();
+    void diffPole() {
+      // Subtract big poly from other poles
+      for (var other in _polygons.where((p) => p.positive != pole)) {
+        var united = union(other, polygon);
+        if (united.length == 1 && united.first.positive == pole) {
+          // This opposite pole is now gone
+          affected.add(other);
+        } else if (united.length == 2 && united.any((p) => p == polygon)) {
+          // No overlapping
+          if (united.first == polygon) {
+            // A contains B
+            inside = true;
+          }
+        } else {
+          // Opposite pole gets transformed, maybe split into multiple
+          affected.add(other);
+          removeMerge = !pole;
+          nPolys.addAll(united);
+        }
       }
+    }
+
+    if (pole) {
+      diffPole();
+      equalPole();
+    } else {
+      equalPole();
+      diffPole();
+    }
+
+    if (!pole && nPolys.isEmpty && !inside) {
+      removeMerge = true;
+    }
+
+    for (var aff in affected) {
+      _polygons.remove(aff..dispose());
+    }
+    _polygons
+        .addAll(nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
+
+    if (!removeMerge) {
+      _polygons.add(SvgPolygon.copy(_poleParent(polygon.positive), polygon));
+    }
+
+    if (affected.isNotEmpty || nPolys.isNotEmpty || !removeMerge) {
+      if (onChange != null) onChange();
     }
   }
 
-  void _addCroppedParts(Polygon polygon) {
+  Iterable<Polygon> _cropPolygon(Polygon polygon) {
     var w = root.parent.clientWidth - cropMargin;
     var h = root.parent.clientHeight - cropMargin;
     var cropRect = Polygon(points: [
@@ -297,10 +288,6 @@ class PolygonCanvas with CanvasLoader {
       Point(w, h),
       Point(cropMargin, h),
     ]);
-    var result = intersection(cropRect, polygon);
-
-    for (var poly in result) {
-      _polygons.add(SvgPolygon.copy(_poleParent(true), poly));
-    }
+    return intersection(polygon, cropRect);
   }
 }

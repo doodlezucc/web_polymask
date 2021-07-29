@@ -378,6 +378,43 @@ void main() {
       expect(result.first.points, unorderedEquals(expectedPoly));
     });
 
+    test('Remove More from Positive (Edge)', () {
+      var uShape = Polygon(points: [
+        Point(5, 3),
+        Point(8, 3),
+        Point(8, 4),
+        Point(6, 4),
+        Point(6, 5),
+        Point(8, 5),
+        Point(8, 6),
+        Point(5, 6),
+      ], positive: false);
+
+      var expectedPoly = [
+        ...polygon.points,
+        Point(7, 3),
+        Point(5, 3),
+        Point(5, 6),
+        Point(7, 6),
+      ];
+
+      var expectedRect = [
+        Point(6, 4),
+        Point(7, 4),
+        Point(7, 5),
+        Point(6, 5),
+      ];
+
+      printPolys([uShape, polygon]);
+      var result = union(polygon, uShape);
+      printPolys(result);
+
+      expect(result.length, 2);
+      expect(result.map((e) => e.positive), [true, true]);
+      expect(result.first.points, unorderedEquals(expectedPoly));
+      expect(result.last.points, unorderedEquals(expectedRect));
+    });
+
     test('Remove from Positive (Duplicates)', () {
       var rect = Polygon(points: [
         Point(3, 5),
@@ -513,6 +550,18 @@ void main() {
   });
 
   group('Intersection', () {
+    test('0 Overlaps', () {
+      var smallSquare = Polygon(points: [
+        Point(0, 0),
+        Point(1, 0),
+        Point(1, 1),
+        Point(0, 1),
+      ]);
+
+      var result = intersection(smallSquare, polygon);
+      expect(result.length, 0);
+    });
+
     test('One Contains the Other', () {
       var bigSquare = Polygon(points: [
         Point(0, 0),
