@@ -1,5 +1,4 @@
 import 'dart:html';
-import 'dart:math';
 import 'dart:svg' as svg;
 
 import 'package:web_polymask/math/polygon.dart';
