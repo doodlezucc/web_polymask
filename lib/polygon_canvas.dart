@@ -60,6 +60,13 @@ class PolygonCanvas with CanvasLoader {
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
+  void instantiateActivePolygon() {
+    if (activePolygon != null) {
+      addPolygon(activePolygon..refreshSvg());
+      activePolygon = null;
+    }
+  }
+
   void _initKeyListener() {
     window.onKeyDown.listen((ev) {
       if (captureInput && !_isInput(ev.target)) {
@@ -76,11 +83,9 @@ class PolygonCanvas with CanvasLoader {
             return;
 
           case 13: // Enter
-            if (activePolygon != null) {
-              addPolygon(activePolygon..refreshSvg());
-              activePolygon = null;
-              ev.preventDefault();
-            }
+          case 32: // Space
+            instantiateActivePolygon();
+            ev.preventDefault();
             return;
         }
       }
@@ -118,6 +123,10 @@ class PolygonCanvas with CanvasLoader {
 
         ev.preventDefault();
         document.activeElement.blur();
+
+        if (ev is MouseEvent && ev.button == 2 && activePolygon != null) {
+          return instantiateActivePolygon();
+        }
 
         var p = fixedPoint(ev);
         var createNew = activePolygon == null;
