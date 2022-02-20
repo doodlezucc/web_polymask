@@ -34,16 +34,20 @@ svg, svg rect {
   height: 100%;
 }
 
-svg .polypattern {
-  fill: url(#pattern);
-  opacity: 0.7;
+.polypattern, #polynegdisplay {
+  stroke: #fb8;
+  stroke-width: 4px;
 }
 
-svg #polyneg polygon {
-  fill: black;
+.polypattern, .positive-pole {
+  fill: url(#pattern) !important;
 }
 
-svg #polyprev {
+#polynegdisplay {
+  fill: none;
+}
+
+#polyprev {
   fill: none;
   stroke: #fff;
   stroke-width: 4px;
@@ -51,9 +55,6 @@ svg #polyprev {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-svg #polyprev.positive-pole {
-  fill: url(#pattern);
-}
-svg #polyprev.poly-invalid {
+#polyprev.poly-invalid {
   stroke: #f66;
 }

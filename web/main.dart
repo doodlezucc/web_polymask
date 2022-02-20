@@ -27,4 +27,20 @@ void main() {
       }
     }
   });
+
+  _resizeMask();
+  window.onResize.listen((_) => _resizeMask());
+}
+
+void _resizeMask() async {
+  var clientRect = querySelector('svg').getBoundingClientRect();
+
+  if (clientRect.width == 0) {
+    return Future.delayed(Duration(milliseconds: 20), _resizeMask);
+  }
+
+  querySelector('#polynegmask rect').attributes.addAll({
+    'width': '${clientRect.width}',
+    'height': '${clientRect.height}',
+  });
 }

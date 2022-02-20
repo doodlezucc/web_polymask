@@ -17,8 +17,8 @@
   <h1>Polymask Example</h1>
 
   <p>
-    Because this mini project was created for the sole reason of getting merged into D&D Interactive,
-    here's a dungeon map I yoinked off the internet.
+    Because this mini project was created for the sole reason of getting merged into Dungeon Club,
+    here's a battle map I yoinked off the internet.
   </p>
   <p>
     You can either <b>click to create single points</b> of a polygon or <b>hold to draw continuous shapes</b>.
@@ -34,29 +34,27 @@
     <svg>
       <defs>
         <pattern id="pattern" width="21" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45 50 50)">
-          <rect fill="#1115"></rect>
-          <line stroke="#fb8" stroke-width="20px" y2="10" />
+          <rect fill="#1112"></rect>
+          <line stroke="#fb8b" stroke-width="20px" y2="10" />
           <animateTransform attributeType="xml" attributeName="patternTransform" type="translate" from="0" to="21"
             dur="3s" repeatCount="indefinite" additive="sum" />
         </pattern>
 
-        <filter id="outline">
-          <feMorphology operator="dilate" radius="2" in="SourceGraphic" result="THICKNESS" />
-          <feComposite operator="out" in="THICKNESS" in2="SourceGraphic"></feComposite>
-        </filter>
+        <g id="polyneg"></g>
 
-        <mask id="polyneg">
+        <mask id="polynegmask" fill="black">
           <rect fill="white"></rect>
+          <use href="#polyneg"></use>
         </mask>
       </defs>
 
-      <g filter="url(#outline)" fill="#fb8">
-        <g id="polypos" mask="url(#polyneg)"></g>
+      <g id="polypos" class="polypattern" mask="url(#polynegmask)"></g>
+
+      <g id="polynegdisplay">
+        <use href="#polyneg"></use>
       </g>
 
-      <use href="#polypos" class="polypattern"></use>
-
-      <polygon id="polyprev" class="polypattern"></polygon>
+      <polygon id="polyprev"></polygon>
     </svg>
   </div>
 </body>
