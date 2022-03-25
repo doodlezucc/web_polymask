@@ -21,6 +21,7 @@ class PolygonCanvas with CanvasLoader {
   Point Function(Point p) modifyPoint;
   bool captureInput;
   SvgPolygon activePolygon;
+  Point<int> currentP;
   int cropMargin;
 
   PolygonCanvas(
@@ -60,8 +61,10 @@ class PolygonCanvas with CanvasLoader {
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
-  void instantiateActivePolygon() {
+  void instantiateActivePolygon({bool includeCursorPoint = true}) {
     if (activePolygon != null) {
+      if (currentP != null) activePolygon..addPoint(currentP);
+
       addPolygon(activePolygon..refreshSvg());
       activePolygon = null;
     }
@@ -124,13 +127,13 @@ class PolygonCanvas with CanvasLoader {
         ev.preventDefault();
         document.activeElement.blur();
 
+        currentP = fixedPoint(ev);
+        var createNew = activePolygon == null;
+        var click = true;
+
         if (ev is MouseEvent && ev.button == 2 && activePolygon != null) {
           return instantiateActivePolygon();
         }
-
-        var p = fixedPoint(ev);
-        var createNew = activePolygon == null;
-        var click = true;
 
         if (createNew) {
           // Start new polygon
@@ -140,7 +143,7 @@ class PolygonCanvas with CanvasLoader {
 
           activePolygon = SvgPolygon(
             _poleParent(pole),
-            points: [p],
+            points: [currentP],
             positive: pole,
           );
           moveStreamCtrl = StreamController();
@@ -154,7 +157,7 @@ class PolygonCanvas with CanvasLoader {
           });
         } else {
           // Add single point to active polygon
-          activePolygon.addPoint(p);
+          activePolygon.addPoint(currentP);
         }
 
         await endEvent.first;
@@ -173,9 +176,9 @@ class PolygonCanvas with CanvasLoader {
         if (moveStreamCtrl != null) {
           moveStreamCtrl.add(fixedPoint(ev));
         } else if (activePolygon != null) {
-          var p = fixedPoint(ev);
-          activePolygon.refreshSvg(p);
-          _drawPreview(p);
+          currentP = fixedPoint(ev);
+          activePolygon.refreshSvg(currentP);
+          _drawPreview(currentP);
         }
       });
     }
