@@ -26,6 +26,9 @@ class PolygonCanvas with CanvasLoader {
   Point<int> currentP;
   int cropMargin;
 
+  bool get isEmpty => _polygons.isEmpty;
+  bool get isNotEmpty => !isEmpty;
+
   PolygonCanvas(
     this.root, {
     this.captureInput = true,
@@ -43,6 +46,7 @@ class PolygonCanvas with CanvasLoader {
   void clear({bool triggerChangeEvent = true}) {
     _polygons.forEach((element) => element.dispose());
     _polygons.clear();
+    if (triggerChangeEvent) _triggerOnChange();
   }
 
   @override
@@ -51,7 +55,7 @@ class PolygonCanvas with CanvasLoader {
     canvasFromData(
       base64,
       (positive, points) => _polygons.add(SvgPolygon(
-        _poleParent(positive),
+        getPoleParent(positive),
         positive: positive,
         points: points,
       )),
@@ -104,7 +108,7 @@ class PolygonCanvas with CanvasLoader {
     polyprev.classes.toggle('poly-invalid', !activePolygon.isSimple(extra));
   }
 
-  Element _poleParent(bool positive) => positive ? polypos : polyneg;
+  Element getPoleParent(bool positive) => positive ? polypos : polyneg;
 
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
@@ -144,7 +148,7 @@ class PolygonCanvas with CanvasLoader {
           polyprev.classes.toggle('positive-pole', pole);
 
           activePolygon = SvgPolygon(
-            _poleParent(pole),
+            getPoleParent(pole),
             points: [currentP],
             positive: pole,
           );
@@ -293,27 +297,39 @@ class PolygonCanvas with CanvasLoader {
     for (var aff in affected) {
       _polygons.remove(aff..dispose());
     }
-    _polygons
-        .addAll(nPolys.map((p) => SvgPolygon.copy(_poleParent(p.positive), p)));
+    _polygons.addAll(
+        nPolys.map((p) => SvgPolygon.copy(getPoleParent(p.positive), p)));
 
     if (!removeMerge) {
-      _polygons.add(SvgPolygon.copy(_poleParent(polygon.positive), polygon));
+      _polygons.add(SvgPolygon.copy(getPoleParent(polygon.positive), polygon));
     }
 
     if (affected.isNotEmpty || nPolys.isNotEmpty || !removeMerge) {
-      if (onChange != null) onChange();
+      _triggerOnChange();
     }
   }
 
-  Iterable<Polygon> _cropPolygon(Polygon polygon) {
+  void _triggerOnChange() {
+    if (onChange != null) onChange();
+  }
+
+  /// Returns a positive polygon covering the entire canvas.
+  Polygon makeCropRect() {
     var w = root.parent.clientWidth - cropMargin;
     var h = root.parent.clientHeight - cropMargin;
-    var cropRect = Polygon(points: [
+    return Polygon(points: [
       Point(cropMargin, cropMargin),
       Point(w, cropMargin),
       Point(w, h),
       Point(cropMargin, h),
     ]);
-    return intersection(polygon, cropRect);
+  }
+
+  Iterable<Polygon> _cropPolygon(Polygon polygon) {
+    return intersection(polygon, makeCropRect());
+  }
+
+  void fillCanvas() {
+    addPolygon(SvgPolygon.copy(getPoleParent(true), makeCropRect()));
   }
 }
