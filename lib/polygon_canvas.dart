@@ -17,6 +17,8 @@ class PolygonCanvas with CanvasLoader {
   final svg.SvgElement polyneg;
   final svg.SvgElement polyprev;
   void Function() onChange;
+  void Function(dynamic error, StackTrace stackTrace, String previousData,
+      Polygon polygon) debugOnError;
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
   bool captureInput;
@@ -197,19 +199,27 @@ class PolygonCanvas with CanvasLoader {
   }
 
   void addPolygon(SvgPolygon polygon) {
+    var previousData = debugOnError != null ? toData() : null;
     _hidePreview();
-    if (polygon.points.length >= 3 && polygon.isSimple()) {
-      if (polygon.positive) {
-        var cropped = _cropPolygon(polygon);
-        for (var poly in cropped) {
-          _mergePolygon(poly);
+
+    try {
+      if (polygon.points.length >= 3 && polygon.isSimple()) {
+        if (polygon.positive) {
+          var cropped = _cropPolygon(polygon);
+          for (var poly in cropped) {
+            _mergePolygon(poly);
+          }
+        } else {
+          // No need to crop negative polygons
+          _mergePolygon(polygon);
         }
-      } else {
-        // No need to crop negative polygons
-        _mergePolygon(polygon);
       }
+    } catch (e, stack) {
+      if (debugOnError != null) debugOnError(e, stack, previousData, polygon);
+      rethrow;
+    } finally {
+      polygon.dispose();
     }
-    polygon.dispose();
   }
 
   void _mergePolygon(Polygon polygon) {
