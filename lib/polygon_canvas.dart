@@ -10,15 +10,23 @@ import 'package:web_polymask/polygon_canvas_data.dart';
 import 'binary.dart';
 import 'interactive/svg_polygon.dart';
 
+typedef DebugErrorFn = void Function(
+  dynamic error,
+  StackTrace stackTrace,
+  String previousData,
+  Polygon polygon,
+);
+
 class PolygonCanvas with CanvasLoader {
   final _polygons = <SvgPolygon>[];
   final svg.SvgSvgElement root;
-  final svg.SvgElement polypos;
-  final svg.SvgElement polyneg;
-  final svg.SvgElement polyprev;
+  final svg.SvgElement _polypos;
+  final svg.SvgElement _polyneg;
+  final svg.SvgElement _polyprev;
+
   void Function() onChange;
-  void Function(dynamic error, StackTrace stackTrace, String previousData,
-      Polygon polygon) debugOnError;
+  DebugErrorFn debugOnError;
+
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
   bool captureInput;
@@ -36,9 +44,9 @@ class PolygonCanvas with CanvasLoader {
     this.acceptStartEvent,
     this.modifyPoint,
     this.cropMargin = 2,
-  })  : polypos = root.querySelector('#polypos'),
-        polyneg = root.querySelector('#polyneg'),
-        polyprev = root.querySelector('#polyprev') {
+  })  : _polypos = root.querySelector('#polypos'),
+        _polyneg = root.querySelector('#polyneg'),
+        _polyprev = root.querySelector('#polyprev') {
     _initKeyListener();
     _initCursorControls();
   }
@@ -60,6 +68,16 @@ class PolygonCanvas with CanvasLoader {
         points: points,
       )),
     );
+  }
+
+  void fromPolygons(List<Polygon> polygons) {
+    // Avoid recursion
+    if (polygons == _polygons) return;
+
+    clear(triggerChangeEvent: false);
+    for (var src in polygons) {
+      _polygons.add(SvgPolygon.copy(getPoleParent(src.positive), src));
+    }
   }
 
   @override
@@ -101,14 +119,14 @@ class PolygonCanvas with CanvasLoader {
     });
   }
 
-  void _hidePreview() => polyprev.setAttribute('points', '');
+  void _hidePreview() => _polyprev.setAttribute('points', '');
 
   void _drawPreview([Point<int> extra]) {
-    polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
-    polyprev.classes.toggle('poly-invalid', !activePolygon.isSimple(extra));
+    _polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
+    _polyprev.classes.toggle('poly-invalid', !activePolygon.isSimple(extra));
   }
 
-  Element getPoleParent(bool positive) => positive ? polypos : polyneg;
+  Element getPoleParent(bool positive) => positive ? _polypos : _polyneg;
 
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
@@ -145,7 +163,7 @@ class PolygonCanvas with CanvasLoader {
           // Start new polygon
           var pole = !(ev as dynamic).shiftKey;
 
-          polyprev.classes.toggle('positive-pole', pole);
+          _polyprev.classes.toggle('positive-pole', pole);
 
           activePolygon = SvgPolygon(
             getPoleParent(pole),
@@ -174,7 +192,6 @@ class PolygonCanvas with CanvasLoader {
 
         if (createNew && !click && activePolygon != null) {
           addPolygon(activePolygon);
-          activePolygon = null;
         }
       });
 
@@ -203,26 +220,35 @@ class PolygonCanvas with CanvasLoader {
   }
 
   void addPolygon(SvgPolygon polygon) {
-    var previousData = debugOnError != null ? toData() : null;
+    var polyState = _polygons.toList(growable: false);
     _hidePreview();
 
     try {
-      if (polygon.points.length >= 3 && polygon.isSimple()) {
-        if (polygon.positive) {
-          var cropped = _cropPolygon(polygon);
-          for (var poly in cropped) {
-            _mergePolygon(poly);
-          }
-        } else {
-          // No need to crop negative polygons
-          _mergePolygon(polygon);
-        }
-      }
+      _addPolygon(polygon);
     } catch (e, stack) {
-      if (debugOnError != null) debugOnError(e, stack, previousData, polygon);
-      rethrow;
+      if (debugOnError != null) {
+        debugOnError(e, stack, canvasToData(polyState), polygon);
+      }
+
+      fromPolygons(polyState);
+      if (debugOnError == null) rethrow;
     } finally {
+      activePolygon = null;
       polygon.dispose();
+    }
+  }
+
+  void _addPolygon(SvgPolygon polygon) {
+    if (polygon.points.length >= 3 && polygon.isSimple()) {
+      if (polygon.positive) {
+        var cropped = _cropPolygon(polygon);
+        for (var poly in cropped) {
+          _mergePolygon(poly);
+        }
+      } else {
+        // No need to crop negative polygons
+        _mergePolygon(polygon);
+      }
     }
   }
 
