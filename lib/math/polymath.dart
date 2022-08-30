@@ -106,7 +106,7 @@ void forceClockwise(Polygon polygon) {
 ///
 /// Based on
 /// https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html.
-bool pointInsidePolygon(Point p, Polygon polygon, {bool allowEdges = false}) {
+bool pointInsidePolygon(Point p, Polygon polygon, {bool allowEdges = true}) {
   if (!polygon.boundingBox.containsPoint(p)) return false;
 
   var inside = false;
@@ -154,6 +154,9 @@ Iterable<Polygon> intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
+const double _noiseA = 4.57763671875e-05;
+const double _noiseB = 3.0517578125e-05;
+
 /// Using a "switch approach": Start at the first intersection, trace B
 /// until meeting another one. Switch to A and trace its points until traversing
 /// back into B. If this next intersection is not what we started
@@ -170,7 +173,7 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
   forceClockwise(b);
 
   var aPoints =
-      a.points.map((e) => Point(e.x + 0.00001, e.y + 0.00001)).toList();
+      a.points.map((e) => Point(e.x + _noiseA, e.y + _noiseB)).toList();
 
   var p1 = aPoints.last;
   var inside = pointInsidePolygon(p1, b);
@@ -235,6 +238,9 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       // A contains B
       return union ? (samePole ? [a] : [b, a]) : [b];
     }
+
+    // Only return positive polygon
+    if (!samePole) return a.positive ? [a] : [b];
 
     return union ? [a, b] : [];
   }
@@ -354,10 +360,11 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
     out[0] = removeDoubles(
         Polygon(points: results.first, positive: firstIsPositive));
 
-    return out;
+    return out..removeWhere((p) => p == null);
   } else {
     return results
-        .map((ps) => removeDoubles(Polygon(points: ps, positive: a.positive)));
+        .map((ps) => removeDoubles(Polygon(points: ps, positive: a.positive)))
+        .where((p) => p != null);
   }
 }
 
@@ -386,9 +393,8 @@ Polygon removeDoubles(Polygon polygon) {
     }
   }
 
-  if (nPoints.isEmpty) return null;
-
   _removeDeadEnds(nPoints);
+  if (nPoints.isEmpty) return null;
 
   return Polygon(points: nPoints, positive: polygon.positive);
 }
@@ -411,7 +417,7 @@ void _removeDeadEnds(List<Point<int>> points) {
   }
 
   var i = 0;
-  while (i < len) {
+  while (i < len && len >= 3) {
     var area = _area(points, i);
 
     if (area == 0) {
@@ -429,6 +435,8 @@ void _removeDeadEnds(List<Point<int>> points) {
       i++;
     }
   }
+
+  if (len < 3) points.clear();
 }
 
 /// Returns `poly` with all points multiplied by `m`.
