@@ -28,6 +28,23 @@ class Polygon {
     _boxUpToDate = false;
   }
 
+  /// Merges consecutive points which have are at most `distance` units apart.
+  void mergeByDistance(int distance) {
+    if (points.isEmpty) return;
+
+    final distSquared = distance * distance;
+    var prev = points.last;
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      var d = p.squaredDistanceTo(prev);
+      if (d <= distSquared) {
+        points.removeAt(i);
+      } else {
+        prev = p;
+      }
+    }
+  }
+
   /// Performance expensive operation
   @deprecated
   bool isSimple([Point<int> extraPoint]) {

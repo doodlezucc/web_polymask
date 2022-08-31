@@ -27,7 +27,7 @@ class StrokePath extends BrushPath {
 
   @override
   bool handleMouseMove(Point<int> p) {
-    if (path.isEmpty || p.squaredDistanceTo(path.last) > 30) {
+    if (path.isEmpty || p.squaredDistanceTo(path.last) > 20) {
       path.add(p);
       _update();
       return true;
@@ -48,7 +48,7 @@ class StrokePath extends BrushPath {
       try {
         // Doesn't work if union returns two separate polygons
         var nPoly = union(polygon, circ).firstWhere((poly) => poly.positive);
-        polygon = nPoly;
+        polygon = nPoly..mergeByDistance(4);
       } finally {
         points.addAll(polygon.points);
       }
