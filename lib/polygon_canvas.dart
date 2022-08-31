@@ -26,13 +26,13 @@ class PolygonCanvas with CanvasLoader {
 
   void Function() onChange;
   DebugErrorFn debugOnError;
-  PolygonBrush brush = PolygonBrush.lasso;
+  PolygonBrush brush = PolygonBrush.stroke;
 
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
   bool captureInput;
   BrushPath activePath;
-  SvgPolygon get activePolygon => activePath?.polygon;
+  SvgPolygon activePolygon;
   Point<int> _currentP;
   int cropMargin;
 
@@ -93,8 +93,12 @@ class PolygonCanvas with CanvasLoader {
         activePath..handleMouseMove(_currentP);
       }
 
-      addPolygon(activePolygon..refreshSvg());
-      activePath = null;
+      try {
+        addPolygon(activePolygon..refreshSvg());
+      } finally {
+        activePolygon = null;
+        activePath = null;
+      }
     }
   }
 
@@ -157,7 +161,7 @@ class PolygonCanvas with CanvasLoader {
 
         _currentP = fixedPoint(ev);
         var createNew = activePolygon == null;
-        var click = true;
+        var click = brush.employClickEvent;
 
         if (ev is MouseEvent && ev.button == 2 && activePolygon != null) {
           return instantiateActivePolygon();
@@ -169,18 +173,19 @@ class PolygonCanvas with CanvasLoader {
 
           _polyprev.classes.toggle('positive-pole', pole);
 
-          activePath = brush.createNewPath()
-            ..polygon = SvgPolygon(
-              getPoleParent(pole),
-              points: [_currentP],
-              positive: pole,
-            );
+          activePath = brush.createNewPath(_currentP);
+          activePolygon = SvgPolygon(
+            getPoleParent(pole),
+            points: activePath.points,
+            positive: pole,
+          );
 
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
             // Polygon could have been cancelled by user
             if (activePath != null) {
               if (activePath.handleMouseMove(point)) {
+                activePolygon.refreshSvg();
                 _drawPreview();
               }
               click = false;
@@ -197,10 +202,13 @@ class PolygonCanvas with CanvasLoader {
           moveStreamCtrl = null;
         }
 
-        var poly = activePolygon;
-        if (createNew && !click && poly != null) {
-          activePath = null;
-          addPolygon(poly);
+        if (createNew && !click && activePath != null) {
+          try {
+            addPolygon(activePolygon);
+          } finally {
+            activePath = null;
+            activePolygon = null;
+          }
         }
       });
 

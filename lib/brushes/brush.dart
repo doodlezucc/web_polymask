@@ -2,17 +2,24 @@ import 'dart:math';
 
 import '../math/polygon.dart';
 import 'lasso.dart';
+import 'stroke.dart';
 
 abstract class PolygonBrush {
-  const PolygonBrush();
+  final bool employClickEvent;
 
-  static const lasso = PolygonLassoBrush();
+  const PolygonBrush({this.employClickEvent = false});
 
-  BrushPath createNewPath();
+  static const lasso = LassoBrush();
+  static const stroke = StrokeBrush();
+
+  BrushPath createNewPath(Point<int> start);
 }
 
 abstract class BrushPath {
-  Polygon polygon;
+  Polygon Function() createPolygon;
+  final List<Point<int>> points;
+
+  BrushPath(this.points);
 
   bool handleMouseMove(Point<int> p);
   bool isValid([Point<int> extra]) => true;

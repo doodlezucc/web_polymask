@@ -4,8 +4,6 @@ import 'dart:svg' as svg;
 import 'package:web_polymask/math/polygon.dart';
 
 class SvgPolygon extends Polygon {
-  static const minDistanceSquared = 10;
-
   final svg.PolygonElement el;
 
   SvgPolygon(
@@ -21,15 +19,6 @@ class SvgPolygon extends Polygon {
 
   SvgPolygon.copy(Element parent, Polygon other)
       : this(parent, points: other.points, positive: other.positive);
-
-  @override
-  void addPoint(Point<int> point) {
-    if (points.isEmpty ||
-        point.squaredDistanceTo(points.last) > minDistanceSquared) {
-      super.addPoint(point);
-      refreshSvg();
-    }
-  }
 
   void dispose() {
     el.remove();

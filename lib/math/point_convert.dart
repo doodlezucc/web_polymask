@@ -1,7 +1,7 @@
 import 'dart:math';
 
 Point<int> forceIntPoint(Point p) {
-  return Point<int>(p.x.toInt(), p.y.toInt());
+  return Point<int>(p.x.round(), p.y.round());
 }
 
 Point<double> forceDoublePoint(Point p) {

@@ -1,23 +1,35 @@
 import 'dart:math';
 
 import 'package:web_polymask/brushes/brush.dart';
+import 'package:web_polymask/math/polygon.dart';
 
 import '../math/polymath.dart';
 
-class PolygonLassoBrush extends PolygonBrush {
-  const PolygonLassoBrush();
+const minDistanceSquared = 10;
+
+class LassoBrush extends PolygonBrush {
+  const LassoBrush() : super(employClickEvent: true);
 
   @override
-  BrushPath createNewPath() => LassoBrushPath();
+  BrushPath createNewPath(Point<int> start) => LassoPath([start]);
 }
 
-class LassoBrushPath extends BrushPath {
+class LassoPath extends BrushPath {
+  Polygon polygon;
   int _safelySimple = 0;
+
+  LassoPath(List<Point<int>> points)
+      : polygon = Polygon(points: points),
+        super(points);
 
   @override
   bool handleMouseMove(Point<int> p) {
-    polygon.addPoint(p);
-    return true;
+    if (points.isEmpty ||
+        p.squaredDistanceTo(points.last) > minDistanceSquared) {
+      points.add(p);
+      return true;
+    }
+    return false;
   }
 
   @override
