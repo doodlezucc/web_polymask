@@ -326,11 +326,6 @@ void main() {
       void _testDoubles(Polygon a, Polygon b, bool order) {
         var result = union(a, b);
 
-        // Convert points to SVG polygon data (debugging)
-        // for (var poly in result) {
-        //   print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
-        // }
-
         expect(result.length, 1);
         expect(result.first.positive, true);
         expect(result.first.points, containsAll(expectedPoly));
@@ -409,9 +404,7 @@ void main() {
         Point(6, 5),
       ];
 
-      printPolys([uShape, polygon]);
       var result = union(polygon, uShape);
-      printPolys(result);
 
       expect(result.length, 2);
       expect(result.map((e) => e.positive), [true, true]);
@@ -551,6 +544,26 @@ void main() {
       expect(result.first.positive, true);
       expect(result.first.points, unorderedEquals(poly));
     });
+
+    test('Duplicate Intersections (Noise Edge Case)', () {
+      final a = parse(
+          '360,283 354,288 334,292 314,288 297,275 286,257 284,237 284,233 291,213 305,198 324,189 344,189 358,195 371,189 391,189 410,198 424,213 431,233 429,253 418,271 401,284 381,288 361,284');
+      final b = parse(
+          '361,284 344,271 333,253 331,233 338,213 352,198 371,189 391,189 410,198 424,213 431,233 429,253 418,271 401,284 381,288');
+
+      final pA = Polygon(points: a);
+      final pB = Polygon(points: b);
+
+      final out = union(pA, pB);
+      final out2 = union(pB, pA);
+
+      expect(out.length, 1);
+      expect(out2.length, 1);
+      expect(out.first.boundingBox, pA.boundingBox);
+      expect(out2.first.boundingBox, pA.boundingBox);
+
+      expect(out.first.points, unorderedEquals(out2.first.points));
+    });
   });
 
   group('Intersection', () {
@@ -651,4 +664,12 @@ void printPolys(Iterable<Polygon> result) {
   for (var poly in result) {
     print(poly.points.map((p) => '${p.x},${p.y}').join(' '));
   }
+}
+
+/// Parses a list of 2D points in SVG polygon data format.
+List<Point<int>> parse(String s) {
+  return s.split(' ').map((co) {
+    var parts = co.split(',');
+    return Point(int.parse(parts[0]), int.parse(parts[1]));
+  }).toList();
 }

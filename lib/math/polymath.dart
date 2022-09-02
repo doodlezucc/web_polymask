@@ -310,8 +310,7 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       steps = aEnd.aSegment - aStart.aSegment;
       if (steps == 0) {
         var diff = aIndex - aSrc;
-        if (union &&
-            (samePole ? diff != -1 : !(diff.abs() == 1 && overlaps > 1))) {
+        if (union && !(diff.abs() == 1 && overlaps > 1)) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;

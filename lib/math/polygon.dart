@@ -28,7 +28,7 @@ class Polygon {
     _boxUpToDate = false;
   }
 
-  /// Merges consecutive points which have are at most `distance` units apart.
+  /// Merges consecutive points which are at most `distance` units apart.
   void mergeByDistance(int distance) {
     if (points.isEmpty) return;
 
@@ -39,13 +39,14 @@ class Polygon {
       var d = p.squaredDistanceTo(prev);
       if (d <= distSquared) {
         points.removeAt(i);
+        invalidateBoundingBox();
       } else {
         prev = p;
       }
     }
   }
 
-  /// Performance expensive operation
+  /// Performance expensive operation. Only for debugging purposes.
   @deprecated
   bool isSimple([Point<int> extraPoint]) {
     if (points.length < 3) return true;
