@@ -442,9 +442,9 @@ void main() {
 
       var result = union(polygon, cut);
 
-      expect(result.length, 1);
-      expect(result.first.positive, true);
-      expect(result.first.points, unorderedEquals(polygon.points));
+      expect(result.length, 2);
+      expect(result, anyElement(polygon));
+      expect(result, anyElement(cut));
     });
 
     test('Remove at Corners', () {

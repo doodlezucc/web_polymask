@@ -239,9 +239,6 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       return union ? (samePole ? [a] : [b, a]) : [b];
     }
 
-    // Only return positive polygon
-    if (!samePole) return a.positive ? [a] : [b];
-
     return union ? [a, b] : [];
   }
 
