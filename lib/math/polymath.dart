@@ -445,3 +445,86 @@ Polygon upscale(Polygon poly, int m) {
     positive: poly.positive,
   );
 }
+
+/// Merges `polygon` into `state`.
+Set<Polygon> mergePolygon(Iterable<Polygon> state, Polygon polygon) {
+  var pole = polygon.positive;
+  var affected = <Polygon>{};
+  var nPolys = <Polygon>[];
+  var removeMerge = false;
+  var inside = false;
+
+  void equalPole() {
+    // Merge all equally polarized polygons
+    for (var other in state.where((p) => p.positive == pole)) {
+      var united = union(polygon, other);
+      if (united.length == 1) {
+        var merge = united.first;
+        if (merge != other) {
+          affected.add(other);
+
+          if (merge != polygon) {
+            // There's one big shape now
+            polygon = merge;
+          }
+        } else {
+          removeMerge = true;
+        }
+      } else if (united.length == 2 && united.first == polygon) {
+        // No overlapping
+      } else {
+        // Wow, cool new shape with holes and stuff
+        affected.add(other);
+        polygon = united.firstWhere((p) => p.positive);
+        nPolys.addAll(united.where((p) => !p.positive));
+      }
+    }
+  }
+
+  void diffPole() {
+    // Subtract big poly from other poles
+    for (var other in state.where((p) => p.positive != pole)) {
+      var united = union(other, polygon);
+      if (united.length == 1 && united.first.positive == pole) {
+        // This opposite pole is now gone
+        affected.add(other);
+      } else if (united.length == 2 && united.any((p) => p == polygon)) {
+        // No overlapping
+        if (united.first == polygon) {
+          // A contains B
+          inside = true;
+        }
+      } else {
+        // Opposite pole gets transformed, maybe split into multiple
+        affected.add(other);
+        removeMerge = !pole;
+        nPolys.addAll(united);
+      }
+    }
+  }
+
+  if (pole) {
+    diffPole();
+    equalPole();
+  } else {
+    equalPole();
+    diffPole();
+  }
+
+  if (!pole && nPolys.isEmpty && !inside) {
+    removeMerge = true;
+  }
+
+  final out = state.toSet();
+
+  for (var aff in affected) {
+    out.remove(aff);
+  }
+  out.addAll(nPolys);
+
+  if (!removeMerge) {
+    out.add(polygon);
+  }
+
+  return out;
+}

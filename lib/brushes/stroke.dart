@@ -1,34 +1,33 @@
 import 'dart:math';
 
 import '../math/polygon.dart';
-import '../math/polymath.dart';
 import 'brush.dart';
 
-const int resolution = 15;
+const int resolution = 3;
 final List<Point<double>> unitCircle = computeUnitCircle(resolution);
 
 class StrokeBrush extends PolygonBrush {
   const StrokeBrush();
 
   @override
-  BrushPath createNewPath(Point<int> start) => StrokePath([start]);
+  BrushPath createNewPath(Point<int> start) => StrokePath(start);
 }
 
 class StrokePath extends BrushPath {
   double radius = 50;
   Polygon polygon;
-  bool breakNow = false;
+  Point<int> last;
 
-  final List<Point<int>> path;
-
-  StrokePath(this.path) : super([]) {
+  StrokePath(Point<int> start)
+      : last = start,
+        super([]) {
     _update();
   }
 
   @override
   bool handleMouseMove(Point<int> p) {
-    if (path.isEmpty || p.squaredDistanceTo(path.last) > 20) {
-      path.add(p);
+    if (last == null || p.squaredDistanceTo(last) > 200) {
+      last = p;
       _update();
       return true;
     }
@@ -36,23 +35,24 @@ class StrokePath extends BrushPath {
   }
 
   void _update() {
-    if (breakNow) return;
     points.clear();
+    points.addAll(makeCircle(last, radius));
+    // points.clear();
 
-    var circ = Polygon(points: makeCircle(path.last, radius));
+    // var circ = Polygon(points: makeCircle(path.last, radius));
 
-    if (polygon == null) {
-      polygon = circ;
-      points.addAll(polygon.points);
-    } else {
-      try {
-        // Doesn't work if union returns two separate polygons
-        var nPoly = union(polygon, circ).firstWhere((poly) => poly.positive);
-        polygon = nPoly..mergeByDistance(4);
-      } finally {
-        points.addAll(polygon.points);
-      }
-    }
+    // if (polygon == null) {
+    //   polygon = circ;
+    //   points.addAll(polygon.points);
+    // } else {
+    //   try {
+    //     // Doesn't work if union returns two separate polygons
+    //     var nPoly = union(polygon, circ).firstWhere((poly) => poly.positive);
+    //     polygon = nPoly..mergeByDistance(4);
+    //   } finally {
+    //     points.addAll(polygon.points);
+    //   }
+    // }
   }
 }
 

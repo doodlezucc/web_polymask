@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import '../math/polygon.dart';
 import 'lasso.dart';
 import 'stroke.dart';
 
@@ -12,11 +11,16 @@ abstract class PolygonBrush {
   static const lasso = LassoBrush();
   static const stroke = StrokeBrush();
 
+  BrushPath startPath(Point<int> start) {
+    return createNewPath(start).._brush = this;
+  }
+
   BrushPath createNewPath(Point<int> start);
 }
 
-abstract class BrushPath {
-  Polygon Function() createPolygon;
+abstract class BrushPath<B extends PolygonBrush> {
+  B _brush;
+  B get brush => _brush;
   final List<Point<int>> points;
 
   BrushPath(this.points);

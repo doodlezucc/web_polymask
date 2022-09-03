@@ -3,34 +3,32 @@ import 'dart:svg' as svg;
 
 import 'package:web_polymask/math/polygon.dart';
 
-class SvgPolygon extends Polygon {
+class SvgPolygon {
+  final Polygon polygon;
   final svg.PolygonElement el;
 
-  SvgPolygon(
-    Element parent, {
-    List<Point<int>> points,
-    bool positive = true,
-  })  : el = svg.PolygonElement(),
-        super(points: points, positive: positive) {
+  SvgPolygon(Element parent, this.polygon) : el = svg.PolygonElement() {
     refreshSvg();
-
     parent.append(el);
   }
 
-  SvgPolygon.copy(Element parent, Polygon other)
-      : this(parent, points: other.points, positive: other.positive);
+  SvgPolygon.from(
+    Element parent, {
+    List<Point<int>> points,
+    bool positive = true,
+  }) : this(parent, Polygon(points: points, positive: positive));
 
   void dispose() {
     el.remove();
   }
 
   String _toSvgData(Point<int> extraPoint) {
-    if (points.isEmpty) return '';
+    if (polygon.points.isEmpty) return '';
 
     String writePoint(Point<int> p) => '${p.x},${p.y}';
 
-    var s = writePoint(points.first);
-    for (var p in points.skip(1)) {
+    var s = writePoint(polygon.points.first);
+    for (var p in polygon.points.skip(1)) {
       s += ' ' + writePoint(p);
     }
 
