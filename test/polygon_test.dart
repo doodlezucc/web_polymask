@@ -103,8 +103,21 @@ void main() {
       expect(signedArea(polygon), -17.5);
       expect(signedArea(rect), 6);
     });
+  });
 
-    test('Is Simple (Collision at Segment Ends)', () {
+  group('Polygon Simplicity', () {
+    test('Test Shape', () {
+      expect(polygon.isSimple(), true);
+    });
+
+    test('Negative', () {
+      final hourglass =
+          Polygon(points: [Point(0, 0), Point(1, 0), Point(0, 1), Point(1, 1)]);
+
+      expect(hourglass.isSimple(), false);
+    });
+
+    test('Collision at Segment Ends', () {
       final a = Polygon(
           points: parse(
               '202,232 201,233 217,233 212,242 213,242 210,247 202,233 201,235 199,232'));
