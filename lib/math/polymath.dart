@@ -39,7 +39,8 @@ bool boxOverlap(Polygon a, Polygon b) {
 ///
 /// Based on André LaMothe's algorithm, as
 /// presented on [stackoverflow](https://stackoverflow.com/a/1968345).
-Point<double> segmentIntersect(Point a, Point b, Point u, Point v) {
+Point<double> segmentIntersect(Point a, Point b, Point u, Point v,
+    {bool includeEnds = true}) {
   if (!segmentRoughIntersect(a, b, u, v)) return null;
 
   var s1 = forceDoublePoint(b - a);
@@ -50,10 +51,10 @@ Point<double> segmentIntersect(Point a, Point b, Point u, Point v) {
 
   var s = (-s1.y * (a.x - u.x) + s1.x * (a.y - u.y)) / div;
 
-  if (s >= 0 && s <= 1) {
+  if (includeEnds ? (s >= 0 && s <= 1) : (s > 0 && s < 1)) {
     var t = (s2.x * (a.y - u.y) - s2.y * (a.x - u.x)) / div;
 
-    if (t > 0 && t <= 1) {
+    if (t > 0 && (includeEnds ? t <= 1 : t < 1)) {
       // Collision detected
       return forceDoublePoint(a) + s1 * t;
     }

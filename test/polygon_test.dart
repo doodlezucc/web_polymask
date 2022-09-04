@@ -103,6 +103,14 @@ void main() {
       expect(signedArea(polygon), -17.5);
       expect(signedArea(rect), 6);
     });
+
+    test('Is Simple (Collision at Segment Ends)', () {
+      final a = Polygon(
+          points: parse(
+              '202,232 201,233 217,233 212,242 213,242 210,247 202,233 201,235 199,232'));
+
+      expect(a.isSimple(), true);
+    });
   });
 
   group('Union', () {

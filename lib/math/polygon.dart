@@ -66,7 +66,7 @@ class Polygon {
         var e = elem(i + k);
         var f = elem(i + k + 1);
 
-        var intersection = segmentIntersect(u, v, e, f);
+        var intersection = segmentIntersect(u, v, e, f, includeEnds: false);
         if (intersection != null) {
           return false;
         }
