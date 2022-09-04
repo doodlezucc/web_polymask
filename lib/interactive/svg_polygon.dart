@@ -22,23 +22,13 @@ class SvgPolygon {
     el.remove();
   }
 
-  String _toSvgData(Point<int> extraPoint) {
-    if (polygon.points.isEmpty) return '';
-
-    String writePoint(Point<int> p) => '${p.x},${p.y}';
-
-    var s = writePoint(polygon.points.first);
-    for (var p in polygon.points.skip(1)) {
-      s += ' ' + writePoint(p);
-    }
-
-    if (extraPoint != null) {
-      s += ' ' + writePoint(extraPoint);
-    }
-
-    return s;
-  }
-
   void refreshSvg([Point<int> extraPoint]) =>
-      el.setAttribute('points', _toSvgData(extraPoint));
+      el.setAttribute('points', polygon.toSvgData(extraPoint));
+
+  SvgPolygon copy() => SvgPolygon(el.parent, polygon.copy());
+  SvgPolygon disposeAndCopy() {
+    var result = copy();
+    dispose();
+    return result;
+  }
 }

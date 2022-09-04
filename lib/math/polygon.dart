@@ -46,8 +46,7 @@ class Polygon {
     }
   }
 
-  /// Performance expensive operation. Only for debugging purposes.
-  @deprecated
+  /// Determines if this polygon intersects itself.
   bool isSimple([Point<int> extraPoint]) {
     if (points.length < 3) return true;
 
@@ -75,5 +74,31 @@ class Polygon {
     }
 
     return true;
+  }
+
+  String toSvgData([Point<int> extraPoint]) {
+    if (points.isEmpty) return '';
+
+    String writePoint(Point<int> p) => '${p.x},${p.y}';
+
+    var s = writePoint(points.first);
+    for (var p in points.skip(1)) {
+      s += ' ' + writePoint(p);
+    }
+
+    if (extraPoint != null) {
+      s += ' ' + writePoint(extraPoint);
+    }
+
+    return s;
+  }
+
+  Polygon copy() => Polygon(points: points.toList(), positive: positive);
+
+  @override
+  String toString() {
+    final pole = positive ? 'positive' : 'negative';
+    final data = toSvgData();
+    return '($pole, $data)';
   }
 }
