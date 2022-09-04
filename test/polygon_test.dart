@@ -163,26 +163,14 @@ void main() {
       var diagonal =
           Polygon(points: [Point(4, 1), Point(5, 1), Point(8, 4), Point(8, 5)]);
 
-      var expectedPoints = [
-        ...polygon.points,
-        ...diagonal.points,
-        Point(5, 2),
-        Point(6, 2),
-        Point(7, 3),
-        Point(7, 4),
-      ];
+      var expectedPoints =
+          parse('5,2 4,1 5,1 6,2 7,2 7,3 8,4 8,5 7,4 7,8 3,5 4,3 1,2');
 
       expectUnion(polygon, diagonal, [Polygon(points: expectedPoints)]);
     });
 
     test('2 Overlaps, 1 Hole', () {
-      var expectedPoly = [
-        ...polygon.points,
-        Point(7, 3),
-        Point(9, 3),
-        Point(9, 7),
-        Point(7, 7),
-      ];
+      var expectedPoly = parse('7,3 9,3 9,7 7,7 7,8 3,5 4,3 1,2 7,2');
       var expectedHole = [Point(7, 4), Point(8, 4), Point(8, 6), Point(7, 6)];
 
       expectUnion(polygon, uShape, [
@@ -263,8 +251,8 @@ void main() {
       ];
       var expectedHole2 = [
         Point(500, 650),
-        Point(500, 700),
         Point(567, 700),
+        Point(500, 700),
       ];
 
       expectUnion(polyUp, uShape, [
@@ -317,17 +305,8 @@ void main() {
         Point(6, 4),
       ], positive: false);
 
-      var expectedPoly = [
-        ...polygon.points,
-        Point(7, 3), // Cut 1
-        Point(6, 3),
-        Point(6, 4),
-        Point(7, 4),
-        Point(7, 6), // Cut 2
-        Point(6, 6),
-        Point(6, 7),
-        Point(7, 7),
-      ];
+      var expectedPoly =
+          parse('7,3 6,3 6,4 7,4 7,6 6,6 6,7 7,7 7,8 3,5 4,3 1,2 7,2');
 
       expectUnion(
         polygon,
@@ -349,13 +328,7 @@ void main() {
         Point(5, 6),
       ], positive: false);
 
-      var expectedPoly = [
-        ...polygon.points,
-        Point(7, 3),
-        Point(5, 3),
-        Point(5, 6),
-        Point(7, 6),
-      ];
+      var expectedPoly = parse('7,3 5,3 5,6 7,6 7,8 3,5 4,3 1,2 7,2');
 
       var expectedRect = [
         Point(6, 4),
@@ -422,7 +395,12 @@ void main() {
         Point(6, 3),
       ];
 
-      expectUnion(polygon, cut, [Polygon(points: expectedPoly)]);
+      expectUnion(
+        polygon,
+        cut,
+        [Polygon(points: expectedPoly)],
+        bidirectional: false,
+      );
     });
 
     test('Cut Through Polygon', () {
@@ -641,10 +619,15 @@ List<Point<int>> parse(String s) {
   }).toList();
 }
 
-void expectUnion(Polygon a, Polygon b, List<Polygon> expected,
-    {bool bidirectional = true}) {
-  final matcher = unorderedMatches(
-      expected.map((p) => polygonMatch(p.points, positive: p.positive)));
+void expectUnion(
+  Polygon a,
+  Polygon b,
+  List<Polygon> expected, {
+  bool bidirectional = true,
+  bool checkPointsInOrder = true,
+}) {
+  final matcher =
+      PolygonOperationMatcher(expected, checkOrder: checkPointsInOrder);
 
   expect(union(a, b), matcher);
   if (bidirectional) expect(union(b, a), matcher);
@@ -659,44 +642,135 @@ Iterable<Polygon> expectUnionEqual(Polygon a, Polygon b) {
   return result1;
 }
 
-Matcher polygonMatch(List<Point<int>> points, {bool positive}) {
+Matcher polygonMatch(
+  List<Point<int>> points, {
+  bool requireSimple = true,
+  bool checkOrder = true,
+  bool positive,
+  Map map,
+}) {
   var matcher = TypeMatcher<Polygon>();
 
   if (positive != null) {
     matcher = matcher.having((p) => p.positive, 'positive', positive);
   }
 
-  return matcher.having(
-    (p) => p.points,
-    'points',
-    ringMatch(points),
-  );
+  if (requireSimple) {
+    matcher = matcher.having((p) => p.isSimple(), 'is simple', true);
+  }
+
+  return matcher.having((p) {
+    forceClockwise(p);
+    return p.points;
+  }, 'points',
+      checkOrder ? ringMatch(points, map: map) : unorderedEquals(points));
 }
 
-Matcher ringMatch<S>(List<S> ring) =>
-    allOf(hasLength(ring.length), _RingMatcher<S>(ring));
+class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
+  Matcher _matcher;
+  final List<Polygon> expected;
+  final Map errorMap = {};
+
+  PolygonOperationMatcher(this.expected, {bool checkOrder = true}) {
+    _matcher = unorderedMatches(expected.map((p) => polygonMatch(
+          p.points,
+          positive: p.positive,
+          map: errorMap,
+          checkOrder: checkOrder,
+        )));
+  }
+
+  @override
+  bool matches(item, Map matchState) => _matcher.matches(item, matchState);
+
+  @override
+  Description describe(Description description) =>
+      description.addDescriptionOf(expected);
+
+  @override
+  Description describeMismatch(covariant Iterable<Polygon> mismatch,
+      Description desc, Map matchState, bool verbose) {
+    if (errorMap.isEmpty) {
+      for (var i = 0; i < mismatch.length; i++) {
+        if (!mismatch.elementAt(i).isSimple()) {
+          desc.add('Contains self-intersecting polygon at index $i\n');
+        }
+      }
+    }
+
+    for (List<Point> other in errorMap.keys) {
+      final RingSearchError error = errorMap[other];
+      final index = error.errorInRing;
+
+      desc.add("Doesn't match index $index:\n");
+
+      for (var i = 0; i < other.length; i++) {
+        final r = error.ring[i];
+        final pair = other[(i + error.offset) % other.length];
+
+        var s = '  $r | $pair';
+        if (i == index) s += ' <---';
+
+        desc.add('$s\n');
+      }
+    }
+
+    return desc;
+  }
+}
+
+Matcher ringMatch<S>(List<S> ring, {Map map}) =>
+    allOf(hasLength(ring.length), _RingMatcher<S>(ring, map));
 
 class _RingMatcher<S> extends TypeMatcher<List<S>> {
+  final Map map;
   final List<S> ring;
 
-  _RingMatcher(this.ring);
+  _RingMatcher(this.ring, this.map);
 
   @override
   bool matches(Object other, Map matchState) {
     if (other is List<S>) {
-      if (ring.isEmpty) return true;
+      final error = matchRing(ring, other);
+      if (error == null) return true;
 
-      final offset = other.indexOf(ring[0]);
-
-      for (var i = 0; i < ring.length; i++) {
-        final item = ring[i];
-        final pair = other[(i + offset) % ring.length];
-        if (item != pair) return false;
-      }
-
-      return true;
+      if (map != null) map[other] = error;
     }
 
     return false;
   }
+}
+
+class RingSearchError<T> {
+  final List<T> ring;
+  final List<T> other;
+  final int errorInRing;
+  final int offset;
+
+  RingSearchError(this.ring, this.other, this.errorInRing, this.offset);
+}
+
+RingSearchError<T> matchRing<T>(List<T> ring, List<T> other) {
+  if (ring.isEmpty) return null;
+
+  RingSearchError<T> lastError;
+
+  var offset = -1;
+  while ((offset = other.indexOf(ring[0], offset + 1)) > 0) {
+    RingSearchError<T> error;
+
+    for (var i = 0; i < ring.length; i++) {
+      final item = ring[i];
+      final pair = other[(i + offset) % ring.length];
+      if (item != pair) {
+        error = RingSearchError<T>(ring, other, i, offset);
+        break;
+      }
+    }
+
+    if (error == null) return null; // Found match
+    lastError = error;
+  }
+
+  return lastError;
 }
