@@ -155,8 +155,8 @@ Iterable<Polygon> intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
-const double _noiseA = 4.57763671875e-05;
-const double _noiseB = 3.0517578125e-05;
+const double _noiseA = 2.8710980267e-05;
+const double _noiseB = 3.2491585503e-05;
 
 /// Using a "switch approach": Start at the first intersection, trace B
 /// until meeting another one. Switch to A and trace its points until traversing
@@ -320,12 +320,8 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       if (aEnd != initial) {
         visited.add(aEnd);
       } else {
-        if (!samePole) {
-          final split = _splitSelfIntersections(points);
-          results.addAll(split);
-        } else {
-          results.add(points);
-        }
+        final split = _splitSelfIntersections(points);
+        results.addAll(split);
         break;
       }
     }

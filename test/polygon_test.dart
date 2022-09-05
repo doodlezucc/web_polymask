@@ -523,6 +523,23 @@ void main() {
       );
     });
 
+    test('Addition Creates Self-Intersection', () {
+      final a = Polygon(points: parse('359,320 402,395 316,395'));
+      final b = Polygon(
+          points: parse(
+              '500,300 418,394 403,394 410,381 394,381 401,368 386,368 393,355 380,355 387,342'));
+
+      var part1 = parse('401,368 394,381 387,368');
+      var part2 = parse(
+          '402,395 316,395 359,320 386,368 393,355 380,355 387,342 500,300 418,394 403,394 410,381 394,381');
+
+      expectUnion(
+        a,
+        b,
+        [Polygon(points: part1, positive: false), Polygon(points: part2)],
+      );
+    });
+
     test('Duplicate Intersections (Noise Edge Case)', () {
       final a = parse(
           '360,283 354,288 334,292 314,288 297,275 286,257 284,237 284,233 291,213 305,198 324,189 344,189 358,195 371,189 391,189 410,198 424,213 431,233 429,253 418,271 401,284 381,288 361,284');
