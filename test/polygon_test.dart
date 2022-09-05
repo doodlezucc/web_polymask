@@ -502,6 +502,27 @@ void main() {
       );
     });
 
+    test('Subtraction Creates Self-Intersection', () {
+      var positive = Polygon(
+        points: parse('560,317 552,304 554,289 570,289 565,278 581,278'),
+      );
+
+      var cut = Polygon(
+        points: parse('604,230 647,305 561,305'),
+        positive: false,
+      );
+
+      var part1 = parse('561,305 566,305 560,317 552,304 554,289 570,289');
+      var part2 = parse('565,278 576,278 570,289');
+
+      expectUnion(
+        positive,
+        cut,
+        [Polygon(points: part1), Polygon(points: part2)],
+        bidirectional: false,
+      );
+    });
+
     test('Duplicate Intersections (Noise Edge Case)', () {
       final a = parse(
           '360,283 354,288 334,292 314,288 297,275 286,257 284,237 284,233 291,213 305,198 324,189 344,189 358,195 371,189 391,189 410,198 424,213 431,233 429,253 418,271 401,284 381,288 361,284');

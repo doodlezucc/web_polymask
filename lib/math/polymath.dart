@@ -320,7 +320,12 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       if (aEnd != initial) {
         visited.add(aEnd);
       } else {
-        results.add(points);
+        if (!samePole) {
+          final split = _splitSelfIntersections(points);
+          results.addAll(split);
+        } else {
+          results.add(points);
+        }
         break;
       }
     }
@@ -350,36 +355,83 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
         bigBox = box;
       }
 
-      var polished = removeDoubles(Polygon(points: poly, positive: isPositive));
+      var polished =
+          withoutDoubles(Polygon(points: poly, positive: isPositive));
       if (polished != null) out.add(polished);
     }
 
-    out[0] = removeDoubles(
+    out[0] = withoutDoubles(
         Polygon(points: results.first, positive: firstIsPositive));
 
     return out..removeWhere((p) => p == null);
   } else {
     return results
-        .map((ps) => removeDoubles(Polygon(points: ps, positive: a.positive)))
+        .map((ps) => withoutDoubles(Polygon(points: ps, positive: a.positive)))
         .where((p) => p != null);
   }
 }
 
+List<List<Point<int>>> _splitSelfIntersections(List<Point<int>> points) {
+  if (points.length < 3) return [points];
+
+  final nvert = points.length;
+  final result = [<Point<int>>[]];
+  final isects = <Point<int>>[];
+
+  Point<int> elem(int i) => points[i % nvert];
+
+  for (var i = 0; i < nvert; i++) {
+    var u = points[i];
+    var v = elem(i + 1);
+
+    for (var k = 2; k < nvert - 1; k++) {
+      var e = elem(i + k);
+      var f = elem(i + k + 1);
+
+      var intersection = segmentIntersect(u, v, e, f, includeEnds: false);
+      if (intersection != null) {
+        isects.add(forceIntPoint(intersection));
+        result.last.add(isects.last);
+
+        // Reuse empty point list
+        // if (result.last.isNotEmpty)
+        result.add([]);
+      }
+    }
+
+    result.last.add(v);
+  }
+
+  if (result.length == 1) return result;
+
+  result.last.addAll(result.removeAt(0));
+  return result;
+}
+
 /// Removes every point preceded by another point with the same coordinates
 /// and forces `polygon`s list of points not to repeat.
-Polygon removeDoubles(Polygon polygon) {
-  var first = polygon.points.first;
-  var second = polygon.points.elementAt(1);
+Polygon withoutDoubles(Polygon polygon) {
+  final points = removeDoubles(polygon.points);
+  if (points == null) return null;
+
+  return Polygon(points: points, positive: polygon.positive);
+}
+
+/// Returns a copy of `points` where every point preceded by another point with
+/// the same coordinates is removed.
+List<Point<int>> removeDoubles(List<Point<int>> points) {
+  var first = points.first;
+  var second = points.elementAt(1);
   var previous = first;
   var nPoints = <Point<int>>[first];
 
-  for (var i = 1; i < polygon.points.length; i++) {
-    var p = polygon.points[i];
+  for (var i = 1; i < points.length; i++) {
+    var p = points[i];
     if (p != previous) {
       // Check if polygon repeats
       if (p == first) {
-        var next = polygon.points[(i + 1) % polygon.points.length];
-        if (i == polygon.points.length - 1 || next == second) {
+        var next = points[(i + 1) % points.length];
+        if (i == points.length - 1 || next == second) {
           // Points starts repeating at i
           break;
         }
@@ -393,7 +445,7 @@ Polygon removeDoubles(Polygon polygon) {
   _removeDeadEnds(nPoints);
   if (nPoints.isEmpty) return null;
 
-  return Polygon(points: nPoints, positive: polygon.positive);
+  return nPoints;
 }
 
 /// Removes all parts of `points` that would come across infinitely thin
