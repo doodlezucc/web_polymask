@@ -68,6 +68,6 @@ List<Point<int>> makeCircle(Point<int> center, double radius) {
 List<Point<double>> computeUnitCircle(int resolution) {
   return List.generate(resolution, (i) {
     var t = 2 * pi * i / resolution;
-    return Point(sin(t), cos(t));
+    return Point(sin(t), -cos(t));
   });
 }

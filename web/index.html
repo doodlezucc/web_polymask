@@ -28,8 +28,7 @@
   </p>
 
   <div id="container">
-    <img
-      src="https://mk0a2minutetabl7hq7i.kinstacdn.com/wp-content/uploads/2020/03/Dungeon-Jail-Prison-Battle-Map-Banner-1024x454.jpg">
+    <img src="https://2minutetabletop.com/wp-content/uploads/2020/03/Dungeon-Jail-22x16-Base-Map-Light.jpg">
 
     <svg>
       <defs>
@@ -40,18 +39,18 @@
             dur="3s" repeatCount="indefinite" additive="sum" />
         </pattern>
 
-        <g id="polyneg"></g>
+        <g id="polyneg" polycopy="n"></g>
 
-        <mask id="polynegmask" fill="black">
+        <mask id="polynegmask" fill="black" polycopy="n" polydeep>
           <rect fill="white"></rect>
-          <use href="#polyneg"></use>
+          <use href="#polyneg" polyattr="href"></use>
         </mask>
       </defs>
 
-      <g id="polypos" class="polypattern" mask="url(#polynegmask)"></g>
+      <g id="polypos" class="polypattern" mask="url(#polynegmask)" polycopy="p" polyattr="mask"></g>
 
       <g id="polynegdisplay">
-        <use href="#polyneg"></use>
+        <use href="#polyneg" polycopy="n" polyattr="href"></use>
       </g>
 
       <polygon id="polyprev"></polygon>

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:web_polymask/math/point_convert.dart';
 import 'package:web_polymask/math/polygon.dart';
+import 'package:web_polymask/math/polygon_state.dart';
 
 Rectangle<int> pointsToBoundingBox(List<Point<int>> points) {
   var p1 = points.first;
@@ -168,6 +169,9 @@ const double _noiseB = 3.2491585503e-05;
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
 Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
+  if (a == null && b == null) return [];
+  if (identical(a, b) || b == null) return [a];
+  if (a == null) return [b];
   if (!a.boundingBox.intersects(b.boundingBox)) return union ? [a, b] : [];
 
   forceClockwise(a);
@@ -344,15 +348,15 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
       var poly = results[i];
       var box = pointsToBoundingBox(poly);
 
-      var isPositive = box.containsRectangle(bigBox);
+      var isContained = box.containsRectangle(bigBox);
 
-      if (isPositive) {
+      if (isContained) {
         firstIsPositive = !a.positive;
         bigBox = box;
       }
 
-      var polished =
-          withoutDoubles(Polygon(points: poly, positive: isPositive));
+      var polished = withoutDoubles(
+          Polygon(points: poly, positive: a.positive == isContained));
       if (polished != null) out.add(polished);
     }
 
@@ -493,84 +497,118 @@ Polygon upscale(Polygon poly, int m) {
 }
 
 /// Merges `polygon` into `state`.
-Set<Polygon> mergePolygon(Iterable<Polygon> state, Polygon polygon) {
-  var pole = polygon.positive;
-  var affected = <Polygon>{};
-  var nPolys = <Polygon>[];
-  var removeMerge = false;
-  var inside = false;
+PolygonState mergePolygon(PolygonState state, Polygon polygon) {
+  final root = HPolygon(null, {});
+  Set<HPolygon> layer = state.toHierarchy();
 
-  void equalPole() {
-    // Merge all equally polarized polygons
-    for (var other in state.where((p) => p.positive == pole)) {
-      var united = union(polygon, other);
-      if (united.length == 1) {
-        var merge = united.first;
-        if (merge != other) {
-          affected.add(other);
+  bool samePole = polygon.positive; // Hierarchy roots must be positive
+  HPolygon parent = root;
+  HPolygon grandparent = null;
+  bool makeBridge = !polygon.positive;
+  bool isectAny = false;
+  Polygon layerPoly;
 
-          if (merge != polygon) {
-            // There's one big shape now
-            polygon = merge;
+  while (layer.isNotEmpty) {
+    var srcParent = parent;
+    layerPoly = polygon;
+    Set<HPolygon> nextLayer = {};
+
+    for (var other in layer) {
+      final result = union(other.polygon, layerPoly);
+      if (result.length == 1) {
+        final merge = result.first;
+        if (identical(merge, polygon)) {
+          // polygon contains other: remove children, replace other with poly
+          // continue;
+          continue;
+        } else if (identical(merge, other.polygon)) {
+          // (same pole)
+          // other contains polygon: result will also be contained here
+
+          parent.children.addAll(layer);
+          if (other.children.isEmpty) {
+            // polygon doesn't change anything
+            return state;
           }
+
+          // return traverseDown;
+          parent = other;
+          nextLayer.addAll(other.children);
+          break;
         } else {
-          removeMerge = true;
+          isectAny = true;
+
+          // they intersect and transform into a single new shape
+          // continue traverseDown;
+          nextLayer.addAll(other.children);
+          if (samePole) {
+            if (makeBridge) {
+              print('make bridge');
+              final nP = HPolygon(
+                union(parent.polygon, other.polygon).first,
+                parent.children.toSet(),
+              );
+              grandparent?.children?.remove(parent);
+              grandparent?.children?.add(nP);
+              parent = nP;
+              srcParent = nP;
+
+              continue;
+            } else {
+              layerPoly = merge;
+            }
+          } else {
+            makeBridge = true;
+            final nP = HPolygon(merge, {});
+            parent.children.add(nP);
+            parent = nP;
+          }
+          continue;
         }
-      } else if (united.length == 2 && united.first == polygon) {
-        // No overlapping
-      } else {
-        // Wow, cool new shape with holes and stuff
-        affected.add(other);
-        polygon = united.firstWhere((p) => p.positive);
-        nPolys.addAll(united.where((p) => !p.positive));
-      }
-    }
-  }
+      } else if (result.length == 2) {
+        if (result.any((p) => identical(p, polygon))) {
+          // No overlap
+          print('no intersect');
+          if (!samePole && other.polygon.contains(polygon)) {
+            // (diff pole)
+            // other contains polygon: result will also be contained here
+            // return traverseDown;
+            parent = other;
+            nextLayer.addAll(other.children);
+            break;
+          }
 
-  void diffPole() {
-    // Subtract big poly from other poles
-    for (var other in state.where((p) => p.positive != pole)) {
-      var united = union(other, polygon);
-      if (united.length == 1 && united.first.positive == pole) {
-        // This opposite pole is now gone
-        affected.add(other);
-      } else if (united.length == 2 && united.any((p) => p == polygon)) {
-        // No overlapping
-        if (united.first == polygon) {
-          // A contains B
-          inside = true;
+          continue;
         }
-      } else {
-        // Opposite pole gets transformed, maybe split into multiple
-        affected.add(other);
-        removeMerge = !pole;
-        nPolys.addAll(united);
       }
+
+      isectAny = true;
+      print('transform and traverse');
     }
+
+    samePole = !samePole;
+    layer = nextLayer;
+    grandparent = srcParent;
   }
 
-  if (pole) {
-    diffPole();
-    equalPole();
-  } else {
-    equalPole();
-    diffPole();
+  if (!isectAny) {
+    final addition = HPolygon(polygon, {});
+    parent.children.add(addition);
   }
 
-  if (!pole && nPolys.isEmpty && !inside) {
-    removeMerge = true;
+  for (var r in root.children.toSet()) {
+    _fix(root, r);
   }
 
-  final out = state.toSet();
+  return PolygonState.fromHierarchy(root.children);
+}
 
-  for (var aff in affected) {
-    out.remove(aff);
+void _fix(HPolygon parent, HPolygon self) {
+  for (var ch in self.children.toSet()) {
+    if (ch.polygon.positive == self.polygon.positive) {
+      self.children.remove(ch);
+      parent.children.add(ch);
+    }
+    _fix(self, ch);
   }
-  out.addAll(nPolys);
-
-  if (!removeMerge) {
-    out.add(polygon);
-  }
-
-  return out;
 }

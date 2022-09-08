@@ -5,11 +5,13 @@ import 'package:web_polymask/math/polygon.dart';
 
 class SvgPolygon {
   final Polygon polygon;
-  final svg.PolygonElement el;
+  final svg.PolygonElement _el;
 
-  SvgPolygon(Element parent, this.polygon) : el = svg.PolygonElement() {
+  String get currentSvgData => _el.getAttribute('points');
+
+  SvgPolygon(Element parent, this.polygon) : _el = svg.PolygonElement() {
     refreshSvg();
-    parent.append(el);
+    setParent(parent);
   }
 
   SvgPolygon.from(
@@ -18,17 +20,16 @@ class SvgPolygon {
     bool positive = true,
   }) : this(parent, Polygon(points: points, positive: positive));
 
+  void setParent(Element parent) {
+    parent.append(_el);
+  }
+
   void dispose() {
-    el.remove();
+    _el.remove();
   }
 
   void refreshSvg([Point<int> extraPoint]) =>
-      el.setAttribute('points', polygon.toSvgData(extraPoint));
+      _el.setAttribute('points', polygon.toSvgData(extraPoint));
 
-  SvgPolygon copy() => SvgPolygon(el.parent, polygon.copy());
-  SvgPolygon disposeAndCopy() {
-    var result = copy();
-    dispose();
-    return result;
-  }
+  SvgPolygon copy() => SvgPolygon(_el.parent, polygon.copy());
 }

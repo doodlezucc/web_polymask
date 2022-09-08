@@ -1,8 +1,10 @@
 import 'dart:math';
 
 import 'package:test/test.dart';
+import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
 import 'package:web_polymask/math/polygon.dart';
+import 'package:web_polymask/math/ring_search.dart';
 
 void main() {
   var polygon = Polygon(points: [
@@ -398,7 +400,7 @@ void main() {
         Point(1, 8),
       ], positive: false);
 
-      expectUnion(polygon, cut, [polygon, cut], bidirectional: false);
+      expectUnion(polygon, cut, [polygon], bidirectional: false);
     });
 
     test('Remove at Corners', () {
@@ -449,7 +451,7 @@ void main() {
 
     test('Multiple Cuts Through Polygon', () {
       var cut = Polygon(
-          points: [Point(5, 8), Point(5, 1), Point(8, 4), Point(8, 5)],
+          points: [Point(4, 8), Point(5, 1), Point(8, 4), Point(8, 5)],
           positive: false);
 
       var poly1 = [Point(6, 7), Point(7, 6), Point(7, 8)];
@@ -458,7 +460,7 @@ void main() {
         Point(4, 3),
         Point(1, 2),
         Point(5, 2),
-        Point(5, 6)
+        Point(4, 6)
       ];
       var poly3 = [Point(6, 2), Point(7, 2), Point(7, 3)];
 
@@ -661,6 +663,85 @@ void main() {
       expect(result.last.points, unorderedEquals(poly2));
     });
   });
+
+  group('Merge', () {
+    final hollowSquare = PolygonState.assignParents({
+      fromRect(Rectangle(0, 0, 15, 15)),
+      fromRect(Rectangle(1, 1, 13, 13), positive: false),
+    });
+    final island = fromRect(Rectangle(2, 2, 11, 11));
+    final topVertical = fromRect(Rectangle(7, -1, 1, 5));
+
+    final doubleSquare = PolygonState.assignChildrenBase(hollowSquare, {
+      island,
+      fromRect(Rectangle(3, 3, 9, 9), positive: false),
+    });
+    final miniIsland = fromRect(Rectangle(4, 4, 7, 7));
+
+    test('Island', () {
+      expectMerge(
+        hollowSquare,
+        island,
+        PolygonState.assignChildrenBase(hollowSquare, {island}),
+      );
+    });
+
+    test('Island inside Island', () {
+      expectMerge(
+        doubleSquare,
+        miniIsland,
+        PolygonState.assignChildrenBase(doubleSquare, {miniIsland}),
+      );
+    });
+
+    test('Break open Hollow Square', () {
+      expectMerge(
+          hollowSquare,
+          topVertical.copy(positive: false),
+          PolygonState.assignParents({
+            Polygon(points: [
+              Point(0, 0),
+              Point(7, 0),
+              Point(7, 1),
+              Point(1, 1),
+              Point(1, 14),
+              Point(14, 14),
+              Point(14, 1),
+              Point(8, 1),
+              Point(8, 0),
+              Point(15, 0),
+              Point(15, 15),
+              Point(0, 15),
+            ]),
+          }));
+    });
+
+    test('Break open Double Square Islands', () {
+      final result =
+          mergePolygon(doubleSquare, topVertical.copy(positive: false));
+
+      final hierarchy = result.toHierarchy();
+
+      expect(hierarchy, hasLength(2));
+      expect(hierarchy, everyElement((HPolygon p) => p.polygon.positive));
+      expect(result.isValid(), isTrue);
+      expect(
+        hierarchy,
+        everyElement(TypeMatcher<HPolygon>()
+            .having((p) => p.children, 'Children', isEmpty)
+            .having((p) => p.polygon.points, 'Points', hasLength(12))),
+      );
+    });
+  });
+}
+
+Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
+  return Polygon(positive: positive, points: [
+    rect.bottomLeft,
+    rect.bottomRight,
+    rect.topRight,
+    rect.topLeft,
+  ]);
 }
 
 /// Prints a list of polygons as SVG polygon data (debugging).
@@ -681,7 +762,7 @@ List<Point<int>> parse(String s) {
 void expectUnion(
   Polygon a,
   Polygon b,
-  List<Polygon> expected, {
+  Iterable<Polygon> expected, {
   bool bidirectional = true,
   bool checkPointsInOrder = true,
 }) {
@@ -701,6 +782,48 @@ Iterable<Polygon> expectUnionEqual(Polygon a, Polygon b) {
   return result1;
 }
 
+void expectMergeHierarchy(
+    PolygonState state, Polygon polygon, Set<HPolygon> expected) {
+  expect(
+    mergePolygon(state, polygon),
+    TypeMatcher<PolygonState>().having(
+      (state) => state.toHierarchy(),
+      'Hierarchy',
+      hierarchyMatch(expected),
+    ),
+  );
+}
+
+Matcher hierarchyMatch(Set<HPolygon> expected) {
+  return unorderedMatches(expected.map(hpolyMatch));
+}
+
+Matcher hpolyMatch(HPolygon expected) {
+  return TypeMatcher<HPolygon>()
+      .having(
+          (hp) => hp.polygon,
+          'Polygon',
+          polygonMatch(
+            expected.polygon.points,
+            positive: expected.polygon.positive,
+            requireSimple: false,
+          ))
+      .having(
+          (hp) => hp.children, 'Children', hierarchyMatch(expected.children));
+}
+
+void expectMerge(PolygonState state, Polygon polygon, PolygonState expected) {
+  final matcher = stateMatch(expected);
+  expect(mergePolygon(state, polygon), matcher);
+}
+
+Matcher stateMatch(PolygonState expected) {
+  return TypeMatcher<PolygonState>()
+      .having((p0) => p0.isValid(), 'Validity', isTrue)
+      .having((state) => state.toHierarchy(), 'Hierarchy',
+          hierarchyMatch(expected.toHierarchy()));
+}
+
 Matcher polygonMatch(
   List<Point<int>> points, {
   bool requireSimple = true,
@@ -711,11 +834,11 @@ Matcher polygonMatch(
   var matcher = TypeMatcher<Polygon>();
 
   if (positive != null) {
-    matcher = matcher.having((p) => p.positive, 'positive', positive);
+    matcher = matcher.having((p) => p.positive, 'Pole', positive);
   }
 
   if (requireSimple) {
-    matcher = matcher.having((p) => p.isSimple(), 'is simple', true);
+    matcher = matcher.having((p) => p.isSimple(), 'Simplicity', isTrue);
   }
 
   return matcher.having((p) {
@@ -727,7 +850,7 @@ Matcher polygonMatch(
 
 class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
   Matcher _matcher;
-  final List<Polygon> expected;
+  final Iterable<Polygon> expected;
   final Map errorMap = {};
 
   PolygonOperationMatcher(this.expected, {bool checkOrder = true}) {
@@ -790,7 +913,7 @@ class _RingMatcher<S> extends TypeMatcher<List<S>> {
   @override
   bool matches(Object other, Map matchState) {
     if (other is List<S>) {
-      final error = matchRing(ring, other);
+      final error = ringMismatch(ring, other);
       if (error == null) return true;
 
       if (map != null) map[other] = error;
@@ -798,38 +921,4 @@ class _RingMatcher<S> extends TypeMatcher<List<S>> {
 
     return false;
   }
-}
-
-class RingSearchError<T> {
-  final List<T> ring;
-  final List<T> other;
-  final int errorInRing;
-  final int offset;
-
-  RingSearchError(this.ring, this.other, this.errorInRing, this.offset);
-}
-
-RingSearchError<T> matchRing<T>(List<T> ring, List<T> other) {
-  if (ring.isEmpty) return null;
-
-  RingSearchError<T> lastError;
-
-  var offset = -1;
-  while ((offset = other.indexOf(ring[0], offset + 1)) > 0) {
-    RingSearchError<T> error;
-
-    for (var i = 0; i < ring.length; i++) {
-      final item = ring[i];
-      final pair = other[(i + offset) % ring.length];
-      if (item != pair) {
-        error = RingSearchError<T>(ring, other, i, offset);
-        break;
-      }
-    }
-
-    if (error == null) return null; // Found match
-    lastError = error;
-  }
-
-  return lastError;
 }

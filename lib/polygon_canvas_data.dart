@@ -2,18 +2,12 @@ import 'package:web_polymask/binary.dart';
 import 'package:web_polymask/math/polygon.dart';
 
 class PolygonCanvasData with CanvasLoader {
-  final List<Polygon> polygons = [];
+  final Set<Polygon> polygons = {};
 
   @override
   void fromData(String base64) {
     polygons.clear();
-    canvasFromData(
-      base64,
-      (positive, points) => polygons.add(Polygon(
-        positive: positive,
-        points: points,
-      )),
-    );
+    polygons.addAll(canvasFromData(base64));
   }
 
   @override

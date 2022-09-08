@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:svg' as svg;
 
+import 'package:web_polymask/math/polygon_state.dart';
+
 import 'binary.dart';
 import 'brushes/brush.dart';
 import 'interactive/svg_polygon.dart';
@@ -17,12 +19,20 @@ typedef DebugErrorFn = void Function(
   Polygon polygon,
 );
 
+// TODO remove later
+List<Point<int>> parse(String s) {
+  return s.split(' ').map((co) {
+    var parts = co.split(',');
+    return Point(int.parse(parts[0]), int.parse(parts[1]));
+  }).toList();
+}
+
 class PolygonCanvas with CanvasLoader {
-  final _polygons = <SvgPolygon>{};
+  final _polygons = <SvgPolygon, Polygon>{};
   final svg.SvgSvgElement root;
-  final svg.SvgElement _polypos;
-  final svg.SvgElement _polyneg;
   final svg.SvgElement _polyprev;
+  final _layersPos = <List<svg.SvgElement>>[];
+  final _layersNeg = <List<svg.SvgElement>>[];
 
   void Function() onChange;
   DebugErrorFn debugOnError;
@@ -46,16 +56,46 @@ class PolygonCanvas with CanvasLoader {
     this.acceptStartEvent,
     this.modifyPoint,
     this.cropMargin = 2,
-  })  : _polypos = root.querySelector('#polypos'),
-        _polyneg = root.querySelector('#polyneg'),
-        _polyprev = root.querySelector('#polyprev') {
+  }) : _polyprev = root.querySelector('#polyprev') {
+    _layersPos.add(root.querySelectorAll('[polycopy=p]'));
+    _layersNeg.add(root.querySelectorAll('[polycopy=n]'));
     _initKeyListener();
     _initCursorControls();
-    // addPolygon(SvgPolygon(getPoleParent(true), points: ))
+  }
+
+  List<svg.SvgElement> _createLayer(List<svg.SvgElement> tmp, int z) {
+    final withAttr = 'polyattr';
+    final regId = RegExp(r'#\w+');
+
+    return tmp.map((e) {
+      final deep = e.hasAttribute('polydeep');
+      final svg.SvgElement copy = e.clone(deep);
+      final elems = [copy, ...copy.querySelectorAll('*')];
+
+      // Append `z` to element id and selectors
+      for (var elem in elems) {
+        final id = elem.id;
+        if (id != null && id.isNotEmpty) {
+          elem.id = '$id$z';
+        }
+
+        final attr = elem.attributes[withAttr];
+        if (attr != null) {
+          final srcV = elem.attributes[attr];
+          final idEnd = regId.firstMatch(srcV).end;
+          elem.attributes[attr] =
+              srcV.substring(0, idEnd) + '$z' + srcV.substring(idEnd);
+        }
+      }
+
+      final index = e.parent.children.indexOf(e);
+      e.parent.children.insert(index + z, copy);
+      return copy;
+    }).toList();
   }
 
   void clear({bool triggerChangeEvent = true}) {
-    _polygons.forEach((element) => element.dispose());
+    _polygons.forEach((element, _) => element.dispose());
     _polygons.clear();
     if (triggerChangeEvent) _triggerOnChange();
   }
@@ -63,14 +103,10 @@ class PolygonCanvas with CanvasLoader {
   @override
   void fromData(String base64) {
     clear(triggerChangeEvent: false);
-    canvasFromData(
-      base64,
-      (positive, points) => _polygons.add(SvgPolygon.from(
-        getPoleParent(positive),
-        positive: positive,
-        points: points,
-      )),
-    );
+    final polygons = canvasFromData(base64);
+    final state = PolygonState.assignParents(polygons);
+    _polygons.addAll(
+        state.parents.map((key, value) => MapEntry(_makeSvgPoly(key), value)));
   }
 
   void fromPolygons(Iterable<SvgPolygon> polygons) {
@@ -79,13 +115,13 @@ class PolygonCanvas with CanvasLoader {
 
     clear(triggerChangeEvent: false);
     for (var src in polygons) {
-      _polygons
-          .add(SvgPolygon(getPoleParent(src.polygon.positive), src.polygon));
+      _makeSvgPoly(src.polygon.copy());
     }
   }
 
   @override
-  String toData() => canvasToData(_polygons.map((e) => e.polygon).toList());
+  String toData() =>
+      canvasToData(_polygons.keys.map((e) => e.polygon).toList());
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
@@ -96,7 +132,8 @@ class PolygonCanvas with CanvasLoader {
       }
 
       try {
-        addPolygon(activePolygon..refreshSvg());
+        activePolygon.refreshSvg();
+        addPolygon(activePolygon.polygon);
       } finally {
         activePolygon = null;
         activePath = null;
@@ -133,11 +170,9 @@ class PolygonCanvas with CanvasLoader {
   void _hidePreview() => _polyprev.setAttribute('points', '');
 
   void _drawPreview([Point<int> extra]) {
-    _polyprev.setAttribute('points', activePolygon.el.getAttribute('points'));
+    _polyprev.setAttribute('points', activePolygon.currentSvgData);
     _polyprev.classes.toggle('poly-invalid', !activePath.isValid(extra));
   }
-
-  Element getPoleParent(bool positive) => positive ? _polypos : _polyneg;
 
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
@@ -177,27 +212,25 @@ class PolygonCanvas with CanvasLoader {
           _polyprev.classes.toggle('positive-pole', pole);
 
           activePath = brush.startPath(_currentP);
-          activePolygon = SvgPolygon.from(
-            getPoleParent(pole),
+          activePolygon = _makeSvgPoly(Polygon(
             points: activePath.points,
             positive: pole,
-          );
+          ));
           _drawPreview();
 
           if (!activePath.brush.employClickEvent) {
-            addPolygon(activePolygon);
+            addPolygon(activePolygon.polygon.copy());
           }
 
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
-            return;
             // Polygon could have been cancelled by user
             if (activePath != null) {
               if (activePath.handleMouseMove(point)) {
                 activePolygon.refreshSvg();
                 _drawPreview();
                 if (!activePath.brush.employClickEvent) {
-                  addPolygon(activePolygon);
+                  addPolygon(activePolygon.polygon.copy());
                 }
               }
               click = false;
@@ -218,11 +251,12 @@ class PolygonCanvas with CanvasLoader {
             !click &&
             activePath != null &&
             activePath.brush.employClickEvent) {
-          addPolygon(activePolygon);
+          addPolygon(activePolygon.polygon.copy());
         }
         activePath = null;
         activePolygon.dispose();
         activePolygon = null;
+        _hidePreview();
       });
 
       moveEvent.listen((ev) {
@@ -250,39 +284,31 @@ class PolygonCanvas with CanvasLoader {
   }
 
   /// Convert points to SVG polygon data (debugging)
-  void printPolys(Iterable<SvgPolygon> result) {
-    for (var svg in result) {
-      print(svg.polygon.points.map((p) => '${p.x},${p.y}').join(' '));
-    }
+  String printPolys(Iterable<SvgPolygon> result) {
+    return result.map((svg) => svg.polygon).toList().toString();
   }
 
-  void addPolygon(SvgPolygon polygon) {
-    var polyState = _polygons.toSet();
-    _hidePreview();
-    print('ayo');
-    printPolys(polyState);
-    print('plus this one');
-    printPolys([polygon]);
+  bool breakN = false;
+
+  void addPolygon(Polygon polygon) {
+    if (breakN) return;
+    var polyState = _polygons.keys.toSet();
+    print('State: ${printPolys(polyState)}');
+    print('Add ${polygon}');
 
     try {
       _addPolygon(polygon);
-      // for (var b in _polygons) {
-      //   if (!b.polygon.isSimple()) {
-      //     print('ayo');
-      //     printPolys(polyState);
-      //     print('plus this one');
-      //     printPolys([polygon]);
-      //     print('makes something unsimple');
-      //     break;
-      //   }
-      // }
+      for (var b in _polygons.keys) {
+        if (!b.polygon.isSimple()) {
+          breakN = true;
+          print('I have achieved self intersection');
+          break;
+        }
+      }
     } catch (e, stack) {
       if (debugOnError != null) {
-        debugOnError(
-            e,
-            stack,
-            canvasToData(polyState.map((e) => e.polygon).toList()),
-            polygon.polygon);
+        debugOnError(e, stack,
+            canvasToData(polyState.map((e) => e.polygon).toList()), polygon);
       }
 
       fromPolygons(polyState);
@@ -290,42 +316,63 @@ class PolygonCanvas with CanvasLoader {
     }
   }
 
-  void _addPolygon(SvgPolygon svg) {
-    if (svg.polygon.points.length >= 3 && activePath.isValid()) {
-      if (svg.polygon.positive) {
-        var cropped = _cropPolygon(svg.polygon);
+  void _addPolygon(Polygon polygon) {
+    if (polygon.points.length >= 3) {
+      if (polygon.positive) {
+        var cropped = _cropPolygon(polygon);
         for (var poly in cropped) {
           _mergePolygon(poly);
         }
       } else {
         // No need to crop negative polygons
-        _mergePolygon(svg.polygon);
+        _mergePolygon(polygon);
       }
     }
   }
 
-  SvgPolygon _makeSvgPoly(Polygon src) =>
-      SvgPolygon(getPoleParent(src.positive), src);
+  Element _getPoleParent(bool positive, int z) {
+    final list = positive ? _layersPos : _layersNeg;
+
+    if (z >= list.length) {
+      list.add(_createLayer(list[0], z));
+    }
+
+    return list[z][0];
+  }
+
+  SvgPolygon _makeSvgPoly(Polygon src) {
+    // final z = 0;
+    // print(z);
+    final poly = SvgPolygon(_getPoleParent(src.positive, 0), src);
+    _polygons[poly] = null;
+    return poly;
+  }
 
   void _mergePolygon(Polygon polygon) {
-    final asSvg = Map.fromEntries(_polygons.map((e) => MapEntry(e.polygon, e)));
+    final asSvg = _polygons.map((e, _) => MapEntry(e.polygon, e));
     final state = asSvg.keys.toSet();
-    final result = mergePolygon(state, polygon);
-    bool changed = false;
+    final nState = mergePolygon(
+        PolygonState(_polygons.map((svg, z) => MapEntry(svg.polygon, z))),
+        polygon);
+    // final result = nState.keys.toSet();
+    // bool changed = false;
 
-    for (var add in result.difference(state)) {
-      print('add');
-      _polygons.add(_makeSvgPoly(add));
-      changed = true;
-    }
+    // for (var removed in state.difference(result)) {
+    //   print('- remove $removed');
+    //   _polygons.remove(asSvg[removed]..dispose());
+    //   changed = true;
+    // }
 
-    for (var removed in state.difference(result)) {
-      print('remove');
-      _polygons.remove(asSvg[removed]..dispose());
-      changed = true;
-    }
+    // final additions = result.difference(state).toList()
+    //   ..sort((a, b) => b.positive ? 1 : 0);
+    // for (var add in additions) {
+    //   print('- add $add');
+    //   _makeSvgPoly(add);
+    //   changed = true;
+    // }
 
-    if (changed) _triggerOnChange();
+    // print(result);
+    // if (changed) _triggerOnChange();
   }
 
   void _triggerOnChange() {
@@ -349,6 +396,6 @@ class PolygonCanvas with CanvasLoader {
   }
 
   void fillCanvas() {
-    addPolygon(SvgPolygon(getPoleParent(true), makeCropRect()));
+    addPolygon(makeCropRect());
   }
 }

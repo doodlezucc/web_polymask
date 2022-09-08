@@ -76,6 +76,13 @@ class Polygon {
     return true;
   }
 
+  /// Returns `true` if `other` is contained inside this polygon.
+  ///
+  /// The implementation assumes no intersections/overlaps between these two.
+  bool contains(Polygon other) {
+    return pointInsidePolygon(other.points.first, this, allowEdges: false);
+  }
+
   String toSvgData([Point<int> extraPoint]) {
     if (points.isEmpty) return '';
 
@@ -93,7 +100,8 @@ class Polygon {
     return s;
   }
 
-  Polygon copy() => Polygon(points: points.toList(), positive: positive);
+  Polygon copy({bool positive}) =>
+      Polygon(points: points.toList(), positive: positive ?? this.positive);
 
   @override
   String toString() {

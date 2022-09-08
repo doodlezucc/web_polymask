@@ -5,10 +5,8 @@ import 'dart:typed_data';
 
 import 'math/polygon.dart';
 
-void canvasFromData(
-  String base64,
-  void Function(bool positive, List<Point<int>> points) createPolygon,
-) {
+Iterable<Polygon> canvasFromData(String base64) {
+  var state = <Polygon>{};
   var bytes = base64Decode(base64);
   var reader = _BinaryReader.fromList(bytes);
 
@@ -22,11 +20,14 @@ void canvasFromData(
       points.add(reader.readPoint());
     }
 
-    createPolygon(positive, points);
+    var polygon = Polygon(positive: positive, points: points);
+    state.add(polygon);
   }
+
+  return state;
 }
 
-String canvasToData(List<Polygon> polygons) {
+String canvasToData(Iterable<Polygon> polygons) {
   var writer = _BinaryWriter();
 
   writer.writeUInt16(polygons.length);
