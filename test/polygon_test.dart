@@ -774,6 +774,41 @@ void main() {
             ]),
           }));
     });
+
+    test('Simple Root Union', () {
+      expectMerge(
+          PolygonState({polygon: null}),
+          uShape,
+          PolygonState.assignParents({
+            Polygon(points: parse('3,5 4,3 1,2 7,2 7,3 9,3 9,7 7,7 7,8')),
+            Polygon(positive: false, points: parse('7,4 8,4 8,6 7,6')),
+          }));
+    });
+
+    test('Join Solid and Hollow Square', () {
+      expectMerge(
+          PolygonState.assignParents({
+            // Hollow square
+            fromRect(Rectangle(0, 0, 5, 5)),
+            fromRect(Rectangle(1, 1, 3, 3), positive: false),
+
+            // Solid square
+            fromRect(Rectangle(6, 0, 5, 5)),
+          }),
+          // Bridge
+          fromRect(Rectangle(2, 2, 7, 1)),
+          PolygonState.assignParents({
+            Polygon(
+              points: parse(
+                '0,0 5,0 5,2 6,2 6,0 11,0 11,5 6,5 6,3 5,3 5,5 0,5',
+              ),
+            ),
+            Polygon(
+              positive: false,
+              points: parse('1,1 4,1 4,2 2,2 2,3 4,3 4,4 1,4'),
+            ),
+          }));
+    });
   });
 }
 

@@ -562,6 +562,7 @@ class PolygonMerger {
       layerPoly = polygon;
       Set<HPolygon> nextLayer = {};
       Set<HPolygon> mergeIntoParent = {};
+      Set<HPolygon> childrenOfLayerPoly = {};
       Polygon parent;
 
       for (var other in layer) {
@@ -595,8 +596,6 @@ class PolygonMerger {
             nextLayer.addAll(other.children);
             if (samePole) {
               if (makeBridge) {
-                print('make bridge');
-
                 for (var ch in other.children) {
                   _setParent(ch.polygon, _parents[parent]);
                 }
@@ -620,7 +619,6 @@ class PolygonMerger {
         } else if (result.length == 2) {
           if (result.any((p) => identical(p, polygon))) {
             // No overlap
-            print('no intersect');
             if (!samePole && other.polygon.contains(polygon)) {
               // (diff pole)
               // other contains polygon: result will also be contained here
@@ -635,7 +633,15 @@ class PolygonMerger {
         }
 
         isectAny = true;
-        print('transform and traverse');
+        mergeIntoParent.add(other);
+        for (var poly in result) {
+          if (poly.positive == other.polygon.positive) {
+            layerPoly = poly;
+          } else {
+            _add(poly, null);
+            childrenOfLayerPoly.add(HPolygon(poly, {}));
+          }
+        }
       }
 
       if (samePole && !makeBridge) {
@@ -643,10 +649,12 @@ class PolygonMerger {
 
         // shift (diff) children up, remove
         for (var affected in mergeIntoParent) {
-          for (var ch in affected.children) {
-            _setParent(ch.polygon, layerPoly);
-          }
+          childrenOfLayerPoly.addAll(affected.children);
           _remove(affected.polygon);
+        }
+
+        for (var child in childrenOfLayerPoly) {
+          _setParent(child.polygon, layerPoly);
         }
       }
 
