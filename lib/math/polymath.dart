@@ -496,119 +496,173 @@ Polygon upscale(Polygon poly, int m) {
   );
 }
 
-/// Merges `polygon` into `state`.
-PolygonState mergePolygon(PolygonState state, Polygon polygon) {
-  final root = HPolygon(null, {});
-  Set<HPolygon> layer = state.toHierarchy();
+class PolygonMerger {
+  Map<Polygon, Polygon> _parents;
+  void Function(Polygon polygon) onRemove;
+  void Function(Polygon polygon, Polygon parent) onAdd;
+  void Function(Polygon polygon, Polygon parent) onUpdateParent;
 
-  bool samePole = polygon.positive; // Hierarchy roots must be positive
-  HPolygon parent = root;
-  HPolygon grandparent = null;
-  bool makeBridge = !polygon.positive;
-  bool isectAny = false;
-  Polygon layerPoly;
+  PolygonMerger({this.onAdd, this.onRemove, this.onUpdateParent});
 
-  while (layer.isNotEmpty) {
-    var srcParent = parent;
-    layerPoly = polygon;
-    Set<HPolygon> nextLayer = {};
+  void _remove(Polygon p) {
+    _parents.remove(p);
+    if (onRemove != null) onRemove(p);
+  }
 
-    for (var other in layer) {
-      final result = union(other.polygon, layerPoly);
-      if (result.length == 1) {
-        final merge = result.first;
-        if (identical(merge, polygon)) {
-          // polygon contains other: remove children, replace other with poly
-          // continue;
-          continue;
-        } else if (identical(merge, other.polygon)) {
-          // (same pole)
-          // other contains polygon: result will also be contained here
+  void _removeHPoly(HPolygon hp) {
+    for (var child in hp.children) {
+      _removeHPoly(child);
+    }
+    _remove(hp.polygon);
+  }
 
-          parent.children.addAll(layer);
-          if (other.children.isEmpty) {
-            // polygon doesn't change anything
-            return state;
-          }
+  void _setParent(Polygon p, Polygon parent) {
+    _parents[p] = parent;
+    if (onUpdateParent != null) onUpdateParent(p, parent);
+  }
 
-          // return traverseDown;
-          parent = other;
-          nextLayer.addAll(other.children);
-          break;
-        } else {
-          isectAny = true;
+  void _add(Polygon p, Polygon parent) {
+    _parents[p] = parent;
+    if (onAdd != null) onAdd(p, parent);
+  }
 
-          // they intersect and transform into a single new shape
-          // continue traverseDown;
-          nextLayer.addAll(other.children);
-          if (samePole) {
-            if (makeBridge) {
-              print('make bridge');
-              final nP = HPolygon(
-                union(parent.polygon, other.polygon).first,
-                parent.children.toSet(),
-              );
-              grandparent?.children?.remove(parent);
-              grandparent?.children?.add(nP);
-              parent = nP;
-              srcParent = nP;
+  void _replacePolygon(Polygon a, Polygon b) {
+    final parent = _parents[a];
+    final children =
+        _parents.entries.where((e) => e.value == a).map((e) => e.key).toList();
 
-              continue;
-            } else {
-              layerPoly = merge;
-            }
-          } else {
-            makeBridge = true;
-            final nP = HPolygon(merge, {});
-            parent.children.add(nP);
-            parent = nP;
-          }
-          continue;
-        }
-      } else if (result.length == 2) {
-        if (result.any((p) => identical(p, polygon))) {
-          // No overlap
-          print('no intersect');
-          if (!samePole && other.polygon.contains(polygon)) {
-            // (diff pole)
+    _add(b, parent);
+    for (var child in children) {
+      _setParent(child, b);
+    }
+    _remove(a);
+  }
+
+  void _replace(HPolygon a, Polygon b) {
+    _add(b, _parents[a.polygon]);
+    for (var child in a.children) {
+      _setParent(child.polygon, b);
+    }
+    _remove(a.polygon);
+  }
+
+  /// Merges `polygon` into `state`. This method operates _in situ_.
+  void mergePolygon(PolygonState state, Polygon polygon) {
+    _parents = state.parents;
+    Set<HPolygon> layer = state.toHierarchy();
+
+    bool samePole = polygon.positive; // Hierarchy roots must be positive
+    HPolygon parentSame = null;
+    HPolygon parentDiff = null;
+    bool makeBridge = !polygon.positive;
+    bool isectAny = false;
+    Polygon layerPoly;
+
+    while (layer.isNotEmpty) {
+      layerPoly = polygon;
+      Set<HPolygon> nextLayer = {};
+      Set<HPolygon> mergeIntoParent = {};
+      Polygon parent;
+
+      for (var other in layer) {
+        parent ??= _parents[other.polygon];
+        final result = union(other.polygon, layerPoly);
+        if (result.length == 1) {
+          final merge = result.first;
+          if (identical(merge, polygon)) {
+            // polygon contains other: remove children, replace other with poly
+            // continue;
+            _removeHPoly(other);
+            continue;
+          } else if (identical(merge, other.polygon)) {
+            // (same pole)
             // other contains polygon: result will also be contained here
+
+            if (other.children.isEmpty) {
+              // polygon doesn't change anything
+              return;
+            }
+
             // return traverseDown;
-            parent = other;
+            parentSame = other;
             nextLayer.addAll(other.children);
             break;
-          }
+          } else {
+            isectAny = true;
 
-          continue;
+            // they intersect and transform into a single new shape
+            // continue traverseDown;
+            nextLayer.addAll(other.children);
+            if (samePole) {
+              if (makeBridge) {
+                print('make bridge');
+
+                for (var ch in other.children) {
+                  _setParent(ch.polygon, _parents[parent]);
+                }
+                _remove(other.polygon);
+
+                // subtract the original shape from its (diff) parent
+                final subtracted = union(parent, other.polygon);
+                _replacePolygon(parent, subtracted.first);
+              } else {
+                // other was expanded
+                mergeIntoParent.add(other);
+                layerPoly = merge;
+              }
+            } else {
+              // other was subtracted from
+              makeBridge = true;
+              _replace(other, merge);
+            }
+            continue;
+          }
+        } else if (result.length == 2) {
+          if (result.any((p) => identical(p, polygon))) {
+            // No overlap
+            print('no intersect');
+            if (!samePole && other.polygon.contains(polygon)) {
+              // (diff pole)
+              // other contains polygon: result will also be contained here
+              // return traverseDown;
+              parentDiff = other;
+              nextLayer.addAll(other.children);
+              break;
+            }
+
+            continue;
+          }
+        }
+
+        isectAny = true;
+        print('transform and traverse');
+      }
+
+      if (samePole && !makeBridge) {
+        _add(layerPoly, parent);
+
+        // shift (diff) children up, remove
+        for (var affected in mergeIntoParent) {
+          for (var ch in affected.children) {
+            _setParent(ch.polygon, layerPoly);
+          }
+          _remove(affected.polygon);
         }
       }
 
-      isectAny = true;
-      print('transform and traverse');
+      samePole = !samePole;
+      layer = nextLayer;
     }
 
-    samePole = !samePole;
-    layer = nextLayer;
-    grandparent = srcParent;
+    if (!isectAny) {
+      _add(polygon, parentDiff.polygon);
+    }
   }
-
-  if (!isectAny) {
-    final addition = HPolygon(polygon, {});
-    parent.children.add(addition);
-  }
-
-  for (var r in root.children.toSet()) {
-    _fix(root, r);
-  }
-
-  return PolygonState.fromHierarchy(root.children);
 }
 
-void _fix(HPolygon parent, HPolygon self) {
-  for (var ch in self.children.toSet()) {
-    if (ch.polygon.positive == self.polygon.positive) {
-      self.children.remove(ch);
-      parent.children.add(ch);
-    }
-    _fix(self, ch);
-  }
+/// Merges `polygon` into `state`.
+PolygonState mergePolygon(PolygonState state, Polygon polygon) {
+  final out = state.copy();
+  PolygonMerger().mergePolygon(out, polygon);
+  return out;
 }

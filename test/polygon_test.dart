@@ -732,6 +732,48 @@ void main() {
             .having((p) => p.polygon.points, 'Points', hasLength(12))),
       );
     });
+
+    test('Join Double Squares', () {
+      expectMerge(
+          doubleSquare,
+          topVertical,
+          PolygonState.assignParents({
+            Polygon(points: [
+              Point(0, 0),
+              Point(7, 0),
+              Point(7, -1),
+              Point(8, -1),
+              Point(8, 0),
+              Point(15, 0),
+              Point(15, 15),
+              Point(0, 15),
+            ]),
+            Polygon(positive: false, points: [
+              Point(1, 1),
+              Point(7, 1),
+              Point(7, 2),
+              Point(2, 2),
+              Point(2, 13),
+              Point(13, 13),
+              Point(13, 2),
+              Point(8, 2),
+              Point(8, 1),
+              Point(14, 1),
+              Point(14, 14),
+              Point(1, 14),
+            ]),
+            Polygon(positive: false, points: [
+              Point(3, 3),
+              Point(7, 3),
+              Point(7, 4),
+              Point(8, 4),
+              Point(8, 3),
+              Point(12, 3),
+              Point(12, 12),
+              Point(3, 12),
+            ]),
+          }));
+    });
   });
 }
 
@@ -798,8 +840,15 @@ Matcher hierarchyMatch(Set<HPolygon> expected) {
   return unorderedMatches(expected.map(hpolyMatch));
 }
 
+Matcher parentsMatch(Map<Polygon, Polygon> expected) {
+  return unorderedMatches(expected.entries.map((ex) =>
+      TypeMatcher<MapEntry<Polygon, Polygon>>()
+          .having((m) => m.key, 'Key', polygonMatchInstance(ex.key))
+          .having((m) => m.value, 'Value', polygonMatchInstance(ex.value))));
+}
+
 Matcher hpolyMatch(HPolygon expected) {
-  return TypeMatcher<HPolygon>()
+  return isA<HPolygon>()
       .having(
           (hp) => hp.polygon,
           'Polygon',
@@ -818,10 +867,129 @@ void expectMerge(PolygonState state, Polygon polygon, PolygonState expected) {
 }
 
 Matcher stateMatch(PolygonState expected) {
-  return TypeMatcher<PolygonState>()
-      .having((p0) => p0.isValid(), 'Validity', isTrue)
+  return isA<PolygonState>()
+      .having((state) => state.isValid(), 'Validity', isTrue)
       .having((state) => state.toHierarchy(), 'Hierarchy',
-          hierarchyMatch(expected.toHierarchy()));
+          StateMatcher(expected.toHierarchy()));
+}
+
+abstract class HierarchyMatcher<T, M> extends Matcher {
+  final Iterable<T> expected;
+
+  HierarchyMatcher(this.expected);
+
+  Matcher matchFeature(M feature);
+  String describeFeature(M feature);
+  M getFeature(T instance);
+  Iterable<T> getChildren(T instance);
+
+  String _depth(Iterable<T> siblings, int depth, Iterable<T> missing) {
+    String out = '';
+    String d = '  ' * depth;
+    for (var t in siblings) {
+      out += '\n$d- ' + describeFeature(getFeature(t));
+      if (missing.contains(t)) {
+        out += ' <-- MISSING';
+      }
+      out += _depth(getChildren(t), depth + 1, missing);
+    }
+    return out;
+  }
+
+  @override
+  Description describe(Description description) =>
+      description.add(_depth(expected, 0, []));
+
+  bool matchLayer(Iterable<T> layer, Iterable<T> expected, Map matchState) {
+    bool allMatch = true;
+    for (var ex in expected) {
+      final matcher = matchFeature(getFeature(ex));
+      bool found = false;
+      for (var t in layer) {
+        if (matcher.matches(getFeature(t), {})) {
+          found = true;
+
+          bool childrenMatch = matchLayer(
+            getChildren(t),
+            getChildren(ex),
+            matchState,
+          );
+
+          if (!childrenMatch) {
+            allMatch = false;
+          }
+          break;
+        }
+      }
+
+      if (!found) {
+        allMatch = false;
+        (matchState['missing'] as List).add(ex);
+      }
+    }
+    return allMatch;
+  }
+
+  @override
+  bool matches(item, Map matchState) {
+    matchState['missing'] = <T>[];
+    if (item is Iterable<T>) {
+      return matchLayer(item, expected, matchState);
+    }
+
+    return false;
+  }
+
+  @override
+  Description describeMismatch(
+      item, Description mismatchDescription, Map matchState, bool verbose) {
+    if (item is Iterable<T>) {
+      return mismatchDescription
+          .add(_depth(expected, 0, matchState['missing']));
+    }
+    return mismatchDescription
+        .add('has invalid iterable subtype ${item.runtimeType}');
+  }
+}
+
+class StateMatcher extends HierarchyMatcher<HPolygon, Polygon> {
+  StateMatcher(Iterable<HPolygon> expected) : super(expected);
+
+  @override
+  String describeFeature(Polygon feature) {
+    return feature.toString();
+  }
+
+  @override
+  Iterable<HPolygon> getChildren(HPolygon instance) {
+    return instance.children;
+  }
+
+  @override
+  Matcher matchFeature(Polygon feature) {
+    return polygonMatchInstance(feature);
+  }
+
+  @override
+  Polygon getFeature(HPolygon instance) {
+    return instance.polygon;
+  }
+}
+
+Matcher polygonMatchInstance(
+  Polygon expected, {
+  bool requireSimple = true,
+  bool checkOrder = true,
+  Map map,
+}) {
+  if (expected == null) return isNull;
+  return polygonMatch(
+    expected.points,
+    positive: expected.positive,
+    requireSimple: requireSimple,
+    checkOrder: checkOrder,
+    map: map,
+  );
 }
 
 Matcher polygonMatch(

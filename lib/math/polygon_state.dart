@@ -1,5 +1,4 @@
 import 'polygon.dart';
-import 'package:collection/collection.dart';
 
 class PolygonState {
   final Map<Polygon, Polygon> parents;
@@ -64,10 +63,12 @@ class PolygonState {
     return root;
   }
 
+  PolygonState copy() => PolygonState(Map.of(parents));
+
   @override
   String toString() {
     final hierarchy = toHierarchy();
-    final content = _depth(hierarchy, 1);
+    final content = _depth(hierarchy, 0);
     return '[$content\n]';
   }
 
