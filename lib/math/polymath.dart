@@ -552,7 +552,7 @@ class PolygonMerger {
     Set<HPolygon> layer = state.toHierarchy();
 
     bool samePole = polygon.positive; // Hierarchy roots must be positive
-    HPolygon parentSame = null;
+    Map<Polygon, List<Polygon>> parentSame;
     HPolygon parentDiff = null;
     bool makeBridge = !polygon.positive;
     bool isectAny = false;
@@ -563,6 +563,7 @@ class PolygonMerger {
       Set<HPolygon> nextLayer = {};
       Set<HPolygon> mergeIntoParent = {};
       Set<HPolygon> childrenOfLayerPoly = {};
+      final nParentSame = <Polygon, List<Polygon>>{};
       Polygon parent;
 
       for (var other in layer) {
@@ -585,7 +586,6 @@ class PolygonMerger {
             }
 
             // return traverseDown;
-            parentSame = other;
             nextLayer.addAll(other.children);
             break;
           } else {
@@ -596,14 +596,18 @@ class PolygonMerger {
             nextLayer.addAll(other.children);
             if (samePole) {
               if (makeBridge) {
+                final parents = parentSame[other.polygon] ?? [parent];
+
                 for (var ch in other.children) {
-                  _setParent(ch.polygon, _parents[parent]);
+                  _setParent(ch.polygon, _parents[parents[0]]);
                 }
                 _remove(other.polygon);
 
-                // subtract the original shape from its (diff) parent
-                final subtracted = union(parent, other.polygon);
-                _replacePolygon(parent, subtracted.first);
+                for (var parent in parents) {
+                  // subtract the original shape from its (diff) parent
+                  final subtracted = union(parent, other.polygon);
+                  _replacePolygon(parent, subtracted.first);
+                }
               } else {
                 // other was expanded
                 mergeIntoParent.add(other);
@@ -633,14 +637,39 @@ class PolygonMerger {
         }
 
         isectAny = true;
-        mergeIntoParent.add(other);
-        for (var poly in result) {
-          if (poly.positive == other.polygon.positive) {
-            layerPoly = poly;
-          } else {
-            _add(poly, null);
-            childrenOfLayerPoly.add(HPolygon(poly, {}));
+
+        if (samePole) {
+          mergeIntoParent.add(other);
+          for (var poly in result) {
+            if (poly.positive == other.polygon.positive) {
+              layerPoly = poly;
+            } else {
+              _add(poly, null);
+              childrenOfLayerPoly.add(HPolygon(poly, {}));
+            }
           }
+        } else {
+          // All resulting polygons must be of opposite pole
+          final children = other.children.toSet();
+          nextLayer.addAll(children);
+          for (var poly in result) {
+            _add(poly, parent);
+            for (var child in children) {
+              if (poly.containsEntirely(child.polygon)) {
+                // Child is fully contained within a fractured part of this and
+                // therefore doesn't have to be checked
+                _setParent(child.polygon, poly);
+                nextLayer.remove(child);
+              } else if (poly.intersects(child.polygon)) {
+                nParentSame.update(
+                  child.polygon,
+                  (value) => value..add(poly),
+                  ifAbsent: () => [poly],
+                );
+              }
+            }
+          }
+          _remove(other.polygon);
         }
       }
 
@@ -660,6 +689,7 @@ class PolygonMerger {
 
       samePole = !samePole;
       layer = nextLayer;
+      parentSame = nParentSame;
     }
 
     if (!isectAny) {

@@ -454,7 +454,7 @@ void main() {
           points: [Point(4, 8), Point(5, 1), Point(8, 4), Point(8, 5)],
           positive: false);
 
-      var poly1 = [Point(6, 7), Point(7, 6), Point(7, 8)];
+      var poly1 = [Point(5, 7), Point(7, 6), Point(7, 8)];
       var poly2 = [
         Point(3, 5),
         Point(4, 3),
@@ -809,6 +809,53 @@ void main() {
             ),
           }));
     });
+
+    test('Double Square Split', () {
+      expectMerge(
+          PolygonState.assignParents({
+            fromRect(Rectangle(0, 0, 7, 7)),
+            fromRect(Rectangle(1, 1, 5, 5), positive: false),
+            fromRect(Rectangle(2, 2, 3, 3)),
+          }),
+          // Bridge
+          Polygon(points: parse('3,-1 4,-1 4,4 -1,4 -1,3 3,3')),
+          PolygonState.assignParents({
+            Polygon(
+              points: parse(
+                '0,0 3,0 3,-1 4,-1 4,0 7,0 7,7 0,7 0,4 -1,4 -1,3 0,3',
+              ),
+            ),
+            Polygon(
+              positive: false,
+              points: parse('1,1 3,1 3,3 1,3'),
+            ),
+            Polygon(
+              positive: false,
+              points: parse('4,1 6,1 6,6 1,6 1,4 4,4'),
+            ),
+          }));
+    });
+
+    test('All Possible Fracture Overlaps', () {
+      expectMerge(
+          PolygonState.assignParents({
+            fromRect(Rectangle(1, 1, 7, 6)),
+            fromRect(Rectangle(2, 2, 1, 1), positive: false),
+            fromRect(Rectangle(2, 4, 1, 1), positive: false),
+            fromRect(Rectangle(5, 2, 1, 1), positive: false),
+            fromRect(Rectangle(5, 4, 1, 2), positive: false),
+          }),
+          Polygon(
+            points: parse('0,4 4,4 4,0 7,0 7,4 9,4 9,5 0,5'),
+            positive: false,
+          ),
+          PolygonState.assignParents({
+            fromRect(Rectangle(1, 1, 3, 3)),
+            fromRect(Rectangle(7, 1, 1, 3)),
+            Polygon(points: parse('1,5 5,5 5,6 6,6 6,5 8,5 8,7 1,7')),
+            fromRect(Rectangle(2, 2, 1, 1), positive: false),
+          }));
+    });
   });
 }
 
@@ -1018,6 +1065,7 @@ Matcher polygonMatchInstance(
   Map map,
 }) {
   if (expected == null) return isNull;
+  forceClockwise(expected);
   return polygonMatch(
     expected.points,
     positive: expected.positive,

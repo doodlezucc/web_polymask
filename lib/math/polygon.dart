@@ -83,6 +83,39 @@ class Polygon {
     return pointInsidePolygon(other.points.first, this, allowEdges: false);
   }
 
+  /// Returns `true` if `other` is contained inside this polygon.
+  bool containsEntirely(Polygon other) {
+    if (boundingBox.containsEntirely(other.boundingBox)) {
+      return contains(other);
+    }
+    return false;
+  }
+
+  bool intersects(Polygon other) {
+    if (!boundingBox.intersects(other.boundingBox)) return false;
+
+    final avert = points.length;
+    final bvert = other.points.length;
+
+    for (var i1 = 0, j1 = avert - 1; i1 < avert; j1 = i1++) {
+      final u = points[j1];
+      final v = points[i1];
+
+      final rect = Rectangle.fromPoints(u, v);
+      if (other.boundingBox.intersects(rect)) {
+        for (var i2 = 0, j2 = bvert - 1; i2 < bvert; j2 = i2++) {
+          final e = other.points[j2];
+          final f = other.points[i2];
+
+          if (segmentIntersect(u, v, e, f) != null) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   String toSvgData([Point<int> extraPoint]) {
     if (points.isEmpty) return '';
 
@@ -108,5 +141,16 @@ class Polygon {
     final pole = positive ? 'positive' : 'negative';
     final data = toSvgData();
     return '($pole, $data)';
+  }
+}
+
+extension RectangleExtra on Rectangle {
+  /// Tests whether `this` entirely contains [another].
+  /// Touching edges return false.
+  bool containsEntirely(Rectangle another) {
+    return left < another.left &&
+        left + width > another.left + another.width &&
+        top < another.top &&
+        top + height > another.top + another.height;
   }
 }

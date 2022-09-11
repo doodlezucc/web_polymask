@@ -10,10 +10,10 @@ class RingSearchError<T> {
 RingSearchError<T> ringMismatch<T>(List<T> ring, List<T> other) {
   if (ring.isEmpty) return null;
 
-  RingSearchError<T> lastError;
+  RingSearchError<T> lastError = RingSearchError(ring, other, 0, 0);
 
   var offset = -1;
-  while ((offset = other.indexOf(ring[0], offset + 1)) > 0) {
+  while ((offset = other.indexOf(ring[0], offset + 1)) >= 0) {
     RingSearchError<T> error;
 
     for (var i = 0; i < ring.length; i++) {
