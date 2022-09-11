@@ -660,17 +660,17 @@ class PolygonMerger {
           for (var poly in result) {
             _add(poly, parent);
             for (var child in children) {
-              if (poly.containsEntirely(child.polygon)) {
-                // Child is fully contained within a fractured part of this and
-                // therefore doesn't have to be checked
-                _setParent(child.polygon, poly);
-                nextLayer.remove(child);
-              } else if (poly.intersects(child.polygon)) {
+              if (poly.intersects(child.polygon)) {
                 nParentSame.update(
                   child.polygon,
                   (value) => value..add(poly),
                   ifAbsent: () => [poly],
                 );
+              } else if (poly.contains(child.polygon)) {
+                // Child is fully contained within a fractured part of this and
+                // therefore doesn't have to be checked
+                _setParent(child.polygon, poly);
+                nextLayer.remove(child);
               }
             }
           }
@@ -697,7 +697,6 @@ class PolygonMerger {
       parentSame = nParentSame;
     }
 
-    print(lastContainer);
     if (!isectAny &&
         (lastContainer == null
             ? polygon.positive

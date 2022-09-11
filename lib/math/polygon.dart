@@ -83,14 +83,6 @@ class Polygon {
     return pointInsidePolygon(other.points.first, this, allowEdges: false);
   }
 
-  /// Returns `true` if `other` is contained inside this polygon.
-  bool containsEntirely(Polygon other) {
-    if (boundingBox.containsEntirely(other.boundingBox)) {
-      return contains(other);
-    }
-    return false;
-  }
-
   bool intersects(Polygon other) {
     if (!boundingBox.intersects(other.boundingBox)) return false;
 

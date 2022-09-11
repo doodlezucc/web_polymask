@@ -828,11 +828,11 @@ void main() {
             ),
             Polygon(
               positive: false,
-              points: parse('1,1 3,1 3,3 1,3'),
+              points: parse('2,2 2,3 1,3 1,1 3,1 3,2'),
             ),
             Polygon(
               positive: false,
-              points: parse('4,1 6,1 6,6 1,6 1,4 4,4'),
+              points: parse('2,5 5,5 5,2 4,2 4,1 6,1 6,6 1,6 1,4 2,4'),
             ),
           }));
     });
