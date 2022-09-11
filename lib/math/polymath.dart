@@ -553,8 +553,9 @@ class PolygonMerger {
 
     bool samePole = polygon.positive; // Hierarchy roots must be positive
     Map<Polygon, List<Polygon>> parentSame;
-    HPolygon parentDiff = null;
-    bool makeBridge = !polygon.positive;
+    HPolygon parentDiff;
+    Polygon lastContainer;
+    bool makeBridge = false;
     bool isectAny = false;
     Polygon layerPoly;
 
@@ -579,6 +580,7 @@ class PolygonMerger {
           } else if (identical(merge, other.polygon)) {
             // (same pole)
             // other contains polygon: result will also be contained here
+            lastContainer = other.polygon;
 
             if (other.children.isEmpty) {
               // polygon doesn't change anything
@@ -627,6 +629,7 @@ class PolygonMerger {
               // (diff pole)
               // other contains polygon: result will also be contained here
               // return traverseDown;
+              lastContainer = other.polygon;
               parentDiff = other;
               nextLayer.addAll(other.children);
               break;
@@ -649,7 +652,9 @@ class PolygonMerger {
             }
           }
         } else {
-          // All resulting polygons must be of opposite pole
+          // Other polygon has been fractured into independent parts,
+          // all resulting polygons must be of diff pole
+          makeBridge = true;
           final children = other.children.toSet();
           nextLayer.addAll(children);
           for (var poly in result) {
@@ -673,7 +678,7 @@ class PolygonMerger {
         }
       }
 
-      if (samePole && !makeBridge) {
+      if (samePole && !makeBridge && mergeIntoParent.isNotEmpty) {
         _add(layerPoly, parent);
 
         // shift (diff) children up, remove
@@ -692,8 +697,12 @@ class PolygonMerger {
       parentSame = nParentSame;
     }
 
-    if (!isectAny) {
-      _add(polygon, parentDiff.polygon);
+    print(lastContainer);
+    if (!isectAny &&
+        (lastContainer == null
+            ? polygon.positive
+            : lastContainer.positive != polygon.positive)) {
+      _add(polygon, parentDiff?.polygon);
     }
   }
 }

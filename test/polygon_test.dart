@@ -857,5 +857,13 @@ void main() {
             fromRect(Rectangle(2, 2, 1, 1), positive: false),
           }));
     });
+
+    test('Redundant Addition Next to Hole', () {
+      final state = PolygonState.assignParents({
+        fromRect(Rectangle(0, 0, 7, 7)),
+        fromRect(Rectangle(5, 1, 1, 5), positive: false),
+      });
+      expectMerge(state, fromRect(Rectangle(1, 1, 1, 1)), state);
+    });
   });
 }

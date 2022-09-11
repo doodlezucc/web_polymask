@@ -12,13 +12,6 @@ import 'math/polygon.dart';
 import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
-typedef DebugErrorFn = void Function(
-  dynamic error,
-  StackTrace stackTrace,
-  String previousData,
-  Polygon polygon,
-);
-
 // TODO remove later
 List<Point<int>> parse(String s) {
   return s.split(' ').map((co) {
@@ -28,14 +21,15 @@ List<Point<int>> parse(String s) {
 }
 
 class PolygonCanvas with CanvasLoader {
-  final _polygons = <SvgPolygon, Polygon>{};
+  PolygonState state = PolygonState({});
+  PolygonMerger _merger;
+  final _svg = <Polygon, SvgPolygon>{};
   final svg.SvgSvgElement root;
   final svg.SvgElement _polyprev;
   final _layersPos = <List<svg.SvgElement>>[];
   final _layersNeg = <List<svg.SvgElement>>[];
 
   void Function() onChange;
-  DebugErrorFn debugOnError;
   PolygonBrush brush = PolygonBrush.stroke;
 
   bool Function(Event ev) acceptStartEvent;
@@ -46,7 +40,7 @@ class PolygonCanvas with CanvasLoader {
   Point<int> _currentP;
   int cropMargin;
 
-  bool get isEmpty => _polygons.isEmpty;
+  bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
 
   PolygonCanvas(
@@ -57,10 +51,30 @@ class PolygonCanvas with CanvasLoader {
     this.modifyPoint,
     this.cropMargin = 2,
   }) : _polyprev = root.querySelector('#polyprev') {
+    _merger = PolygonMerger(
+      onAdd: _onAdd,
+      onRemove: _onRemove,
+      onUpdateParent: _onUpdateParent,
+    );
     _layersPos.add(root.querySelectorAll('[polycopy=p]'));
     _layersNeg.add(root.querySelectorAll('[polycopy=n]'));
     _initKeyListener();
     _initCursorControls();
+  }
+
+  void _onAdd(Polygon p, Polygon parent) {
+    print('add $p to $parent');
+    _makeSvgPoly(p);
+  }
+
+  void _onRemove(Polygon p) {
+    print('remove $p');
+    _svg.remove(p).dispose();
+  }
+
+  void _onUpdateParent(Polygon p, Polygon parent) {
+    print('reappend $p to $parent');
+    _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
   List<svg.SvgElement> _createLayer(List<svg.SvgElement> tmp, int z) {
@@ -95,8 +109,9 @@ class PolygonCanvas with CanvasLoader {
   }
 
   void clear({bool triggerChangeEvent = true}) {
-    _polygons.forEach((element, _) => element.dispose());
-    _polygons.clear();
+    _svg.forEach((k, svg) => svg.dispose());
+    _svg.clear();
+    state.parents.clear();
     if (triggerChangeEvent) _triggerOnChange();
   }
 
@@ -104,15 +119,12 @@ class PolygonCanvas with CanvasLoader {
   void fromData(String base64) {
     clear(triggerChangeEvent: false);
     final polygons = canvasFromData(base64);
-    final state = PolygonState.assignParents(polygons);
-    _polygons.addAll(
-        state.parents.map((key, value) => MapEntry(_makeSvgPoly(key), value)));
+    state = PolygonState.assignParents(polygons);
+    _svg.addAll(
+        state.parents.map((key, value) => MapEntry(value, _makeSvgPoly(key))));
   }
 
-  void fromPolygons(Iterable<SvgPolygon> polygons) {
-    // Avoid recursion
-    if (polygons == _polygons) return;
-
+  void _fromPolygons(Iterable<SvgPolygon> polygons) {
     clear(triggerChangeEvent: false);
     for (var src in polygons) {
       _makeSvgPoly(src.polygon.copy());
@@ -120,8 +132,7 @@ class PolygonCanvas with CanvasLoader {
   }
 
   @override
-  String toData() =>
-      canvasToData(_polygons.keys.map((e) => e.polygon).toList());
+  String toData() => canvasToData(state.parents.keys);
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
@@ -283,36 +294,31 @@ class PolygonCanvas with CanvasLoader {
         window.onTouchEnd);
   }
 
-  /// Convert points to SVG polygon data (debugging)
-  String printPolys(Iterable<SvgPolygon> result) {
-    return result.map((svg) => svg.polygon).toList().toString();
-  }
-
   bool breakN = false;
 
   void addPolygon(Polygon polygon) {
     if (breakN) return;
-    var polyState = _polygons.keys.toSet();
-    print('State: ${printPolys(polyState)}');
+    print('State: ${state}');
     print('Add ${polygon}');
 
     try {
       _addPolygon(polygon);
-      for (var b in _polygons.keys) {
-        if (!b.polygon.isSimple()) {
+      if (!state.isValid()) {
+        breakN = true;
+        print('I have achieved an invalid state');
+        print(state.toString());
+        return;
+      }
+      for (var b in _svg.keys) {
+        if (!b.isSimple()) {
           breakN = true;
           print('I have achieved self intersection');
           break;
         }
       }
-    } catch (e, stack) {
-      if (debugOnError != null) {
-        debugOnError(e, stack,
-            canvasToData(polyState.map((e) => e.polygon).toList()), polygon);
-      }
-
-      fromPolygons(polyState);
-      if (debugOnError == null) rethrow;
+    } catch (e) {
+      // fromPolygons(polyState); TODO restore polygons on error
+      rethrow;
     }
   }
 
@@ -340,39 +346,28 @@ class PolygonCanvas with CanvasLoader {
     return list[z][0];
   }
 
+  int _findZ(Polygon p) {
+    int z = 0;
+    Polygon parent = state.parents[p];
+    while (parent != null) {
+      if (!parent.positive) {
+        z++;
+      }
+      parent = state.parents[parent];
+    }
+
+    return z;
+  }
+
   SvgPolygon _makeSvgPoly(Polygon src) {
-    // final z = 0;
-    // print(z);
-    final poly = SvgPolygon(_getPoleParent(src.positive, 0), src);
-    _polygons[poly] = null;
+    final z = _findZ(src);
+    final poly = SvgPolygon(_getPoleParent(src.positive, z), src);
+    _svg[src] = poly;
     return poly;
   }
 
   void _mergePolygon(Polygon polygon) {
-    final asSvg = _polygons.map((e, _) => MapEntry(e.polygon, e));
-    final state = asSvg.keys.toSet();
-    final nState = mergePolygon(
-        PolygonState(_polygons.map((svg, z) => MapEntry(svg.polygon, z))),
-        polygon);
-    // final result = nState.keys.toSet();
-    // bool changed = false;
-
-    // for (var removed in state.difference(result)) {
-    //   print('- remove $removed');
-    //   _polygons.remove(asSvg[removed]..dispose());
-    //   changed = true;
-    // }
-
-    // final additions = result.difference(state).toList()
-    //   ..sort((a, b) => b.positive ? 1 : 0);
-    // for (var add in additions) {
-    //   print('- add $add');
-    //   _makeSvgPoly(add);
-    //   changed = true;
-    // }
-
-    // print(result);
-    // if (changed) _triggerOnChange();
+    _merger.mergePolygon(state, polygon);
   }
 
   void _triggerOnChange() {

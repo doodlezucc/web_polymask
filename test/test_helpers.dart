@@ -30,6 +30,15 @@ List<Point<int>> parse(String s) {
   }).toList();
 }
 
+final polygonRegex = RegExp(r'\((\w+), (.*?)\)');
+
+Set<Polygon> parseState(String s) {
+  return polygonRegex
+      .allMatches(s)
+      .map((m) => Polygon(positive: m[1] == 'positive', points: parse(m[2])))
+      .toSet();
+}
+
 void expectUnion(
   Polygon a,
   Polygon b,
@@ -112,25 +121,39 @@ abstract class HierarchyMatcher<T, M> extends Matcher {
   M getFeature(T instance);
   Iterable<T> getChildren(T instance);
 
-  String _depth(Iterable<T> siblings, int depth, Iterable<T> missing) {
+  String _depth(Iterable<T> siblings, int depth, Iterable<T> missing,
+      Map<Iterable<T>, int> miscount) {
     String out = '';
     String d = '  ' * depth;
+
+    if (miscount[siblings] != null) {
+      int actualCount = miscount[siblings];
+      final children = actualCount == 1 ? 'CHILD' : 'CHILDREN';
+      out += '\n${d}HAS $actualCount $children INSTEAD OF ${siblings.length}:';
+    }
+
     for (var t in siblings) {
       out += '\n$d- ' + describeFeature(getFeature(t));
       if (missing.contains(t)) {
         out += ' <-- MISSING';
       }
-      out += _depth(getChildren(t), depth + 1, missing);
+      out += _depth(getChildren(t), depth + 1, missing, miscount);
     }
     return out;
   }
 
   @override
   Description describe(Description description) =>
-      description.add(_depth(expected, 0, []));
+      description.add(_depth(expected, 0, [], {}));
 
   bool matchLayer(Iterable<T> layer, Iterable<T> expected, Map matchState) {
     bool allMatch = true;
+
+    if (layer.length != expected.length) {
+      (matchState['count'] as Map)[expected] = layer.length;
+      allMatch = false;
+    }
+
     for (var ex in expected) {
       final matcher = matchFeature(getFeature(ex));
       bool found = false;
@@ -162,6 +185,7 @@ abstract class HierarchyMatcher<T, M> extends Matcher {
   @override
   bool matches(item, Map matchState) {
     matchState['missing'] = <T>[];
+    matchState['count'] = <Iterable<T>, int>{};
     if (item is Iterable<T>) {
       return matchLayer(item, expected, matchState);
     }
@@ -174,7 +198,7 @@ abstract class HierarchyMatcher<T, M> extends Matcher {
       item, Description mismatchDescription, Map matchState, bool verbose) {
     if (item is Iterable<T>) {
       return mismatchDescription
-          .add(_depth(expected, 0, matchState['missing']));
+          .add(_depth(expected, 0, matchState['missing'], matchState['count']));
     }
     return mismatchDescription
         .add('has invalid iterable subtype ${item.runtimeType}');
