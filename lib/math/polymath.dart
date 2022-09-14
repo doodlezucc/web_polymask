@@ -563,9 +563,9 @@ class PolygonMerger {
       layerPoly = polygon;
       Set<HPolygon> nextLayer = {};
       Set<HPolygon> mergeIntoParent = {};
-      Set<HPolygon> childrenOfLayerPoly = {};
       final nParentSame = <Polygon, List<Polygon>>{};
       Polygon parent;
+      Set<Polygon> nHoles = {};
 
       for (var other in layer) {
         parent ??= _parents[other.polygon];
@@ -576,6 +576,9 @@ class PolygonMerger {
             // polygon contains other: remove children, replace other with poly
             // continue;
             _removeHPoly(other);
+            continue;
+          } else if (identical(merge, layerPoly)) {
+            // other is about to be encased in layerPoly
             continue;
           } else if (identical(merge, other.polygon)) {
             // (same pole)
@@ -647,8 +650,8 @@ class PolygonMerger {
             if (poly.positive == other.polygon.positive) {
               layerPoly = poly;
             } else {
-              _add(poly, null);
-              childrenOfLayerPoly.add(HPolygon(poly, {}));
+              // Union of two same pole polygons lead to new holes
+              nHoles.add(poly);
             }
           }
         } else {
@@ -683,12 +686,49 @@ class PolygonMerger {
 
         // shift (diff) children up, remove
         for (var affected in mergeIntoParent) {
-          childrenOfLayerPoly.addAll(affected.children);
+          for (var child in affected.children) {
+            _setParent(child.polygon, layerPoly);
+          }
           _remove(affected.polygon);
         }
 
-        for (var child in childrenOfLayerPoly) {
-          _setParent(child.polygon, layerPoly);
+        List<HPolygon> holeChildren = [];
+        for (var other in layer.difference(mergeIntoParent)) {
+          final Map<Polygon, Iterable<Polygon>> holeReplacements = {};
+          for (var nHole in nHoles) {
+            final split = union(nHole, other.polygon);
+            if (split.length == 2 && split.contains(other.polygon)) {
+              // no intersections between hole and other
+              if (nHole.contains(other.polygon)) {
+                // other is contained inside nHole
+                holeChildren.add(other);
+              }
+              continue;
+            }
+
+            holeReplacements[nHole] = split;
+          }
+          if (holeReplacements.isNotEmpty) {
+            _remove(other.polygon);
+            for (var remove in holeReplacements.keys) {
+              var add = holeReplacements[remove];
+              nHoles.remove(remove);
+              nHoles.addAll(add);
+            }
+          }
+        }
+
+        for (var hole in nHoles) {
+          _add(hole, layerPoly);
+        }
+
+        for (var contained in holeChildren) {
+          for (var hole in nHoles) {
+            if (hole.contains(contained.polygon)) {
+              _setParent(contained.polygon, hole);
+              break;
+            }
+          }
         }
       }
 

@@ -865,5 +865,73 @@ void main() {
       });
       expectMerge(state, fromRect(Rectangle(1, 1, 1, 1)), state);
     });
+
+    test('Encase Island', () {
+      expectMerge(
+        PolygonState.assignParents({
+          Polygon(
+            points: parse('0,0 7,0 7,7 0,7 0,3 1,3 1,6 6,6 6,1 1,1 1,2 0,2'),
+          ),
+          fromRect(Rectangle(2, 2, 3, 3)),
+          fromRect(Rectangle(3, 3, 1, 1), positive: false),
+        }),
+        fromRect(Rectangle(0, 1, 1, 3)),
+        PolygonState.assignParents({
+          fromRect(Rectangle(0, 0, 7, 7)),
+          fromRect(Rectangle(1, 1, 5, 5), positive: false),
+          fromRect(Rectangle(2, 2, 3, 3)),
+          fromRect(Rectangle(3, 3, 1, 1), positive: false),
+        }),
+      );
+    });
+
+    test('Join + Encase', () {
+      expectMerge(
+        PolygonState.assignParents({
+          // Bracket Left
+          Polygon(points: parse('0,2 2,2 2,3 1,3 1,6 2,6 2,7 0,7')),
+          // Bracket Right
+          Polygon(points: parse('3,2 5,2 5,7 3,7 3,6 4,6 4,3 3,3')),
+          // Centered Dot
+          fromRect(Rectangle(2, 4, 1, 1)),
+        }),
+        Polygon(
+          points: parse('1,0 7,0 7,9 1,9 1,6 4,6 4,8 6,8 6,1 4,1 4,3 1,3'),
+        ),
+        PolygonState.assignParents({
+          Polygon(points: parse('0,2 1,2 1,0 7,0 7,9 1,9 1,7 0,7')),
+          Polygon(
+            points: parse('4,1 6,1 6,8 4,8 4,7 5,7 5,2 4,2'),
+            positive: false,
+          ),
+          fromRect(Rectangle(1, 3, 3, 3), positive: false),
+          fromRect(Rectangle(2, 4, 1, 1)),
+        }),
+      );
+    });
+
+    test('Encase Parallel Lines + Island', () {
+      final island = fromRect(Rectangle(8, 3, 1, 1));
+      expectMerge(
+        PolygonState.assignParents({
+          fromRect(Rectangle(0, 1, 1, 5)),
+          fromRect(Rectangle(4, 1, 1, 5)),
+          fromRect(Rectangle(2, 1, 1, 5)),
+          fromRect(Rectangle(6, 1, 1, 5)),
+          island,
+        }),
+        Polygon(
+          points: parse('0,0 12,0 12,7 0,7 0,5 10,5 10,2 0,2'),
+        ),
+        PolygonState.assignParents({
+          fromRect(Rectangle(0, 0, 12, 7)),
+          fromRect(Rectangle(1, 2, 1, 3), positive: false),
+          fromRect(Rectangle(3, 2, 1, 3), positive: false),
+          fromRect(Rectangle(5, 2, 1, 3), positive: false),
+          fromRect(Rectangle(7, 2, 3, 3), positive: false),
+          island,
+        }),
+      );
+    });
   });
 }
