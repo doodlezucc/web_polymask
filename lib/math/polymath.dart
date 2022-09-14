@@ -626,7 +626,7 @@ class PolygonMerger {
             continue;
           }
         } else if (result.length == 2) {
-          if (result.any((p) => identical(p, polygon))) {
+          if (result.any((p) => identical(p, other.polygon))) {
             // No overlap
             if (!samePole && other.polygon.contains(polygon)) {
               // (diff pole)

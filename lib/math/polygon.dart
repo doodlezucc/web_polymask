@@ -80,7 +80,7 @@ class Polygon {
   ///
   /// The implementation assumes no intersections/overlaps between these two.
   bool contains(Polygon other) {
-    return pointInsidePolygon(other.points.first, this, allowEdges: false);
+    return pointInsidePolygon(other.points.first, this);
   }
 
   bool intersects(Polygon other) {
