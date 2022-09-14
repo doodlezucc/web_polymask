@@ -53,15 +53,6 @@ void expectUnion(
   if (bidirectional) expect(union(b, a), matcher);
 }
 
-Iterable<Polygon> expectUnionEqual(Polygon a, Polygon b) {
-  var result1 = union(a, b);
-  final matcher = unorderedEquals(
-      result1.map((e) => polygonMatch(e.points, positive: e.positive)));
-
-  expect(union(b, a), matcher);
-  return result1;
-}
-
 void expectMergeHierarchy(
     PolygonState state, Polygon polygon, Set<HPolygon> expected) {
   expect(

@@ -401,7 +401,7 @@ void main() {
         Point(1, 8),
       ], positive: false);
 
-      expectUnion(polygon, cut, [polygon], bidirectional: false);
+      expect(union(polygon, cut), contains(polygonMatchInstance(polygon)));
     });
 
     test('Remove at Corners', () {
@@ -455,7 +455,7 @@ void main() {
           points: [Point(4, 8), Point(5, 1), Point(8, 4), Point(8, 5)],
           positive: false);
 
-      var poly1 = [Point(5, 7), Point(7, 6), Point(7, 8)];
+      var poly1 = [Point(6, 7), Point(7, 6), Point(7, 8)];
       var poly2 = [
         Point(3, 5),
         Point(4, 3),
@@ -552,13 +552,24 @@ void main() {
       final pA = Polygon(points: a);
       final pB = Polygon(points: b);
 
-      final result = expectUnionEqual(pA, pB);
+      final result = union(pA, pB);
       expect(result.length, 1);
       expect(result.first.boundingBox, pA.boundingBox);
     });
 
     test('Unionize Self', () {
       expectUnion(polygon, polygon, [polygon], bidirectional: false);
+    });
+
+    test('Edge Overlap', () {
+      final a = parse(
+          '183,95 174,79 260,79 235,122 238,122 195,197 171,154 160,173 117,98 159,98 157,95');
+      final b = parse('157,95 243,95 200,170');
+
+      final pA = Polygon(points: a);
+      final pB = Polygon(points: b);
+
+      expectUnion(pA, pB, [pA]);
     });
 
     test('Edge Overlap', () {

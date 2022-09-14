@@ -157,7 +157,7 @@ Iterable<Polygon> intersection(Polygon a, Polygon b) {
 }
 
 const double _noiseA = 2.8710980267e-05;
-const double _noiseB = 3.2491585503e-05;
+const double _noiseB = -3.249158553e-05;
 
 /// Using a "switch approach": Start at the first intersection, trace B
 /// until meeting another one. Switch to A and trace its points until traversing
@@ -177,8 +177,15 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
   forceClockwise(a);
   forceClockwise(b);
 
-  var aPoints =
-      a.points.map((e) => Point(e.x + _noiseA, e.y + _noiseB)).toList();
+  bool swch = false;
+
+  var aPoints = a.points.map((p) {
+    swch = !swch;
+    return Point(
+      p.x + (swch ? _noiseA : _noiseB),
+      p.y + (swch ? _noiseB : _noiseA),
+    );
+  }).toList();
 
   var p1 = aPoints.last;
   var inside = pointInsidePolygon(p1, b);
@@ -552,7 +559,7 @@ class PolygonMerger {
     Set<HPolygon> layer = state.toHierarchy();
 
     bool samePole = polygon.positive; // Hierarchy roots must be positive
-    Map<Polygon, List<Polygon>> parentSame;
+    Map<Polygon, List<Polygon>> parentSame = {};
     HPolygon parentDiff;
     Polygon lastContainer;
     bool makeBridge = false;
@@ -636,6 +643,13 @@ class PolygonMerger {
               parentDiff = other;
               nextLayer.addAll(other.children);
               break;
+            }
+
+            if (samePole) {
+              final assignedParents = parentSame[other.polygon];
+              if (assignedParents != null) {
+                _setParent(other.polygon, assignedParents.first);
+              }
             }
 
             continue;
