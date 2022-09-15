@@ -111,10 +111,14 @@ void forceClockwise(Polygon polygon) {
 bool pointInsidePolygon(Point p, Polygon polygon, {bool allowEdges = true}) {
   if (!polygon.boundingBox.containsPoint(p)) return false;
 
-  var inside = false;
-  var nvert = polygon.points.length;
+  return pointInsidePolygonPoints(p, polygon.points, allowEdges: allowEdges);
+}
 
-  var poly = polygon.points;
+/// Checks if `p` is inside `poly`.
+bool pointInsidePolygonPoints(Point p, List<Point> poly,
+    {bool allowEdges = true}) {
+  var inside = false;
+  var nvert = poly.length;
 
   for (var i = 0, j = nvert - 1; i < nvert; j = i++) {
     var a = poly[i];
@@ -246,7 +250,7 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
   if (overlaps == 0) {
     if (firstIsectExits) return [union ? b : a]; // B contains A
 
-    if (pointInsidePolygon(b.points.first, a)) {
+    if (pointInsidePolygonPoints(b.points.first, aPoints)) {
       // A contains B
       return union ? (samePole ? [a] : [b, a]) : [b];
     }
