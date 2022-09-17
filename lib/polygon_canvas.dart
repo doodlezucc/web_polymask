@@ -12,14 +12,6 @@ import 'math/polygon.dart';
 import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
-// TODO remove later
-List<Point<int>> parse(String s) {
-  return s.split(' ').map((co) {
-    var parts = co.split(',');
-    return Point(int.parse(parts[0]), int.parse(parts[1]));
-  }).toList();
-}
-
 class PolygonCanvas with CanvasLoader {
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
@@ -294,30 +286,15 @@ class PolygonCanvas with CanvasLoader {
         window.onTouchEnd);
   }
 
-  bool breakN = false;
-
   void addPolygon(Polygon polygon) {
-    if (breakN) return;
+    final polyState = _svg.values.toList();
     print('State: ${state}');
     print('Add ${polygon}');
 
     try {
       _addPolygon(polygon);
-      if (!state.isValid()) {
-        breakN = true;
-        print('I have achieved an invalid state');
-        print(state.toString());
-        return;
-      }
-      for (var b in _svg.keys) {
-        if (!b.isSimple()) {
-          breakN = true;
-          print('I have achieved self intersection');
-          break;
-        }
-      }
     } catch (e) {
-      // fromPolygons(polyState); TODO restore polygons on error
+      _fromPolygons(polyState);
       rethrow;
     }
   }

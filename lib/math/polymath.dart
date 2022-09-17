@@ -537,12 +537,22 @@ class PolygonMerger {
     if (onAdd != null) onAdd(p, parent);
   }
 
-  void _replacePolygon(Polygon a, Polygon b) {
+  void _replacePolygon(
+    Polygon a,
+    Polygon b,
+    Iterable<List<Polygon>> parentSame,
+  ) {
     final parent = _parents[a];
     final children =
         _parents.entries.where((e) => e.value == a).map((e) => e.key).toList();
 
     _add(b, parent);
+    for (var polyList in parentSame) {
+      final index = polyList.indexOf(a);
+      if (index >= 0) {
+        polyList[index] = b;
+      }
+    }
     for (var child in children) {
       _setParent(child, b);
     }
@@ -560,6 +570,8 @@ class PolygonMerger {
   void _makeBridge(
     HPolygon other,
     List<Polygon> parents,
+    Map<Polygon, List<Polygon>> parentSame,
+    Map<Polygon, List<Polygon>> nParentSame,
   ) {
     for (var ch in other.children) {
       _setParent(ch.polygon, _parents[parents[0]]);
@@ -569,7 +581,18 @@ class PolygonMerger {
     for (var parent in parents) {
       // subtract the original shape from its (diff) parent
       final subtracted = union(parent, other.polygon);
-      _replacePolygon(parent, subtracted.first);
+      var outerShape = subtracted.first;
+      for (var i = 1; i < subtracted.length; i++) {
+        final sp = subtracted.elementAt(i);
+        if (sp.boundingBox.containsRectangle(outerShape.boundingBox)) {
+          outerShape = sp;
+        }
+      }
+      _replacePolygon(
+        parent,
+        outerShape,
+        parentSame.values.followedBy(nParentSame.values),
+      );
     }
   }
 
@@ -629,7 +652,7 @@ class PolygonMerger {
             if (samePole) {
               if (makeBridge) {
                 final parents = parentSame[other.polygon] ?? [parent];
-                _makeBridge(other, parents);
+                _makeBridge(other, parents, parentSame, nParentSame);
               } else {
                 // other was expanded
                 mergeIntoParent.add(other);
@@ -645,17 +668,17 @@ class PolygonMerger {
         } else if (result.length == 2) {
           if (result.any((p) => identical(p, other.polygon))) {
             // No overlap
-            if (!samePole && other.polygon.contains(polygon)) {
-              // (diff pole)
-              // other contains polygon: result will also be contained here
-              // return traverseDown;
-              lastContainer = other.polygon;
-              parentDiff = other;
-              nextLayer.addAll(other.children);
-              break;
-            }
-
-            if (samePole) {
+            if (!samePole) {
+              if (other.polygon.contains(polygon)) {
+                // (diff pole)
+                // other contains polygon: result will also be contained here
+                // return traverseDown;
+                lastContainer = other.polygon;
+                parentDiff = other;
+                nextLayer.addAll(other.children);
+                break;
+              }
+            } else {
               final assignedParents = parentSame[other.polygon];
               if (assignedParents != null) {
                 _setParent(other.polygon, assignedParents.first);
@@ -676,7 +699,7 @@ class PolygonMerger {
                 _add(poly, _parents[parents[0]]);
               }
             }
-            _makeBridge(other, parents);
+            _makeBridge(other, parents, parentSame, nParentSame);
           } else {
             // other was expanded
             mergeIntoParent.add(other);
