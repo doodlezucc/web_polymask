@@ -944,5 +944,56 @@ void main() {
         }),
       );
     });
+
+    test('Make Advanced Bridge', () {
+      final square = fromRect(Rectangle(0, 0, 9, 9));
+      expectMerge(
+        PolygonState.assignParents({
+          square,
+          fromRect(Rectangle(1, 1, 7, 7), positive: false),
+          Polygon(
+            points: parse('2,2 4,2 4,3 3,3 3,6 6,6 6,3 5,3 5,2 7,2 7,7 2,7'),
+          ),
+        }),
+        fromRect(Rectangle(3, 0, 3, 3)),
+        PolygonState.assignParents({
+          square,
+          Polygon(
+            points: parse('1,1 3,1 3,2 2,2 2,7 7,7 7,2 6,2 6,1 8,1 8,8 1,8'),
+            positive: false,
+          ),
+          fromRect(Rectangle(3, 3, 3, 3), positive: false),
+        }),
+      );
+    });
+
+    test('Fracture + Make Advanced Bridge', () {
+      final square = fromRect(Rectangle(0, 0, 9, 9));
+      expectMerge(
+        PolygonState.assignParents({
+          square,
+          fromRect(Rectangle(1, 1, 7, 7), positive: false),
+          Polygon(
+            points: parse('2,2 4,2 4,3 3,3 3,6 6,6 6,3 5,3 5,2 7,2 7,7 2,7'),
+          ),
+        }),
+        fromRect(Rectangle(4, 0, 1, 9)),
+        PolygonState.assignParents({
+          square,
+          // Bracket Left
+          Polygon(
+            points: parse('1,1 4,1 4,2 2,2 2,7 4,7 4,8 1,8'),
+            positive: false,
+          ),
+          // Bracket Right
+          Polygon(
+            points: parse('5,1 8,1 8,8 5,8 5,7 7,7 7,2 5,2'),
+            positive: false,
+          ),
+          fromRect(Rectangle(3, 3, 1, 3), positive: false),
+          fromRect(Rectangle(5, 3, 1, 3), positive: false),
+        }),
+      );
+    });
   });
 }

@@ -557,6 +557,22 @@ class PolygonMerger {
     _remove(a.polygon);
   }
 
+  void _makeBridge(
+    HPolygon other,
+    List<Polygon> parents,
+  ) {
+    for (var ch in other.children) {
+      _setParent(ch.polygon, _parents[parents[0]]);
+    }
+    _remove(other.polygon);
+
+    for (var parent in parents) {
+      // subtract the original shape from its (diff) parent
+      final subtracted = union(parent, other.polygon);
+      _replacePolygon(parent, subtracted.first);
+    }
+  }
+
   /// Merges `polygon` into `state`. This method operates _in situ_.
   void mergePolygon(PolygonState state, Polygon polygon) {
     _parents = state.parents;
@@ -613,17 +629,7 @@ class PolygonMerger {
             if (samePole) {
               if (makeBridge) {
                 final parents = parentSame[other.polygon] ?? [parent];
-
-                for (var ch in other.children) {
-                  _setParent(ch.polygon, _parents[parents[0]]);
-                }
-                _remove(other.polygon);
-
-                for (var parent in parents) {
-                  // subtract the original shape from its (diff) parent
-                  final subtracted = union(parent, other.polygon);
-                  _replacePolygon(parent, subtracted.first);
-                }
+                _makeBridge(other, parents);
               } else {
                 // other was expanded
                 mergeIntoParent.add(other);
@@ -663,13 +669,24 @@ class PolygonMerger {
         isectAny = true;
 
         if (samePole) {
-          mergeIntoParent.add(other);
-          for (var poly in result) {
-            if (poly.positive == other.polygon.positive) {
-              layerPoly = poly;
-            } else {
-              // Union of two same pole polygons lead to new holes
-              nHoles.add(poly);
+          if (makeBridge) {
+            final parents = parentSame[other.polygon] ?? [parent];
+            for (var poly in result) {
+              if (poly.positive != other.polygon.positive) {
+                _add(poly, _parents[parents[0]]);
+              }
+            }
+            _makeBridge(other, parents);
+          } else {
+            // other was expanded
+            mergeIntoParent.add(other);
+            for (var poly in result) {
+              if (poly.positive == other.polygon.positive) {
+                layerPoly = poly;
+              } else {
+                // Union of two same pole polygons lead to new holes
+                nHoles.add(poly);
+              }
             }
           }
         } else {
