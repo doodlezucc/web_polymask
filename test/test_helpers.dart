@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 import 'package:web_polymask/math/polygon.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
-import 'package:web_polymask/math/ring_search.dart';
+import 'ring_search.dart';
 
 Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
   return Polygon(positive: positive, points: [
