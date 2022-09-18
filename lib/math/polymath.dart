@@ -172,7 +172,12 @@ const double _noiseB = -3.249158553e-05;
 /// When compared to existing polygon clipping algorithms, the
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
-OperationResult _operation(Polygon a, Polygon b, bool union) {
+OperationResult _operation(
+  Polygon a,
+  Polygon b,
+  bool union, {
+  bool initNoiseSwitch = false,
+}) {
   if (a == null && b == null) return OperationResultAbort(const []);
   if (identical(a, b) || b == null) return OperationResultAbort([a]);
   if (a == null) return OperationResultAbort([b]);
@@ -184,13 +189,13 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
   forceClockwise(a);
   forceClockwise(b);
 
-  bool swch = false;
+  bool noiseSwitch = initNoiseSwitch;
 
   var aPoints = a.points.map((p) {
-    swch = !swch;
+    noiseSwitch = !noiseSwitch;
     return Point(
-      p.x + (swch ? _noiseA : _noiseB),
-      p.y + (swch ? _noiseB : _noiseA),
+      p.x + (noiseSwitch ? _noiseA : _noiseB),
+      p.y + (noiseSwitch ? _noiseB : _noiseA),
     );
   }).toList();
 
@@ -378,6 +383,13 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
       var polished = withoutDoubles(
           Polygon(points: poly, positive: a.positive == isContained));
       if (polished != null) out.add(polished);
+    }
+
+    if (!initNoiseSwitch &&
+        (bigBox.width < a.boundingBox.width ||
+            bigBox.height < a.boundingBox.height)) {
+      // Intersections must have been sorted the wrong way due to noise
+      return _operation(a, b, union, initNoiseSwitch: true);
     }
 
     out[0] = withoutDoubles(
