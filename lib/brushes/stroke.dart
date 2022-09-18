@@ -3,7 +3,7 @@ import 'dart:math';
 import '../math/polygon.dart';
 import 'brush.dart';
 
-const int resolution = 3;
+const int resolution = 15;
 final List<AngledPoint> unitCircle = computeUnitCircle(resolution);
 
 class StrokeBrush extends PolygonBrush {
@@ -37,23 +37,6 @@ class StrokePath extends BrushPath {
     final circ = makeCircle(p, radius);
     points.addAll(dragPolygon(circ, last ?? p, p));
     last = p;
-
-    // points.clear();
-
-    // var circ = Polygon(points: makeCircle(path.last, radius));
-
-    // if (polygon == null) {
-    //   polygon = circ;
-    //   points.addAll(polygon.points);
-    // } else {
-    //   try {
-    //     // Doesn't work if union returns two separate polygons
-    //     var nPoly = union(polygon, circ).firstWhere((poly) => poly.positive);
-    //     polygon = nPoly..mergeByDistance(4);
-    //   } finally {
-    //     points.addAll(polygon.points);
-    //   }
-    // }
   }
 }
 
@@ -128,8 +111,10 @@ List<Point<int>> dragPolygon(
     final s = shapeAtB[i];
     final newAtA = isAngleBetween(s.angle, angle, invAngle);
     if (newAtA) {
-      if (!atA) out.add(s.point);
-      out.add(s.point + offset);
+      if (!atA) {
+        out.add(s.point);
+        out.add(s.point + offset);
+      }
     } else {
       if (atA) out.add(s.point + offset);
       out.add(s.point);

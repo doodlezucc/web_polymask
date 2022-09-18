@@ -37,14 +37,20 @@ class PolygonState {
     }
   }
 
-  bool isValid() {
-    return parents.entries.every((e) {
+  bool isValid({bool checkSimplicity = false}) {
+    if (!parents.entries.every((e) {
       // Roots must be positive
       if (e.value == null) return e.key.positive;
 
       // Parents must be of oppositive pole and fully contain their children.
       return e.key.positive != e.value.positive && e.value.contains(e.key);
-    });
+    })) return false;
+
+    if (checkSimplicity) {
+      return parents.keys.every((p) => p.isSimple());
+    }
+
+    return true;
   }
 
   Set<HPolygon> toHierarchy() {
