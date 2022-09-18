@@ -653,6 +653,7 @@ class PolygonMerger {
               if (makeBridge) {
                 final parents = parentSame[other.polygon] ?? [parent];
                 _makeBridge(other, parents, parentSame, nParentSame);
+                parent = null;
               } else {
                 // other was expanded
                 mergeIntoParent.add(other);
@@ -700,6 +701,7 @@ class PolygonMerger {
               }
             }
             _makeBridge(other, parents, parentSame, nParentSame);
+            parent = null;
           } else {
             // other was expanded
             mergeIntoParent.add(other);
