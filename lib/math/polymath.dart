@@ -150,13 +150,13 @@ class Intersection {
 }
 
 /// Calculates the union of `a` and `b` (A ∪ B).
-Iterable<Polygon> union(Polygon a, Polygon b) {
+OperationResult union(Polygon a, Polygon b) {
   return _operation(a, b, true);
 }
 
 /// Calculates the intersection of `a` and `b` (A ∩ B).
 /// If they intersect, all returned polygons share the pole of `a`.
-Iterable<Polygon> intersection(Polygon a, Polygon b) {
+OperationResult intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
@@ -172,11 +172,14 @@ const double _noiseB = -3.249158553e-05;
 /// When compared to existing polygon clipping algorithms, the
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
-Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
-  if (a == null && b == null) return [];
-  if (identical(a, b) || b == null) return [a];
-  if (a == null) return [b];
-  if (!a.boundingBox.intersects(b.boundingBox)) return union ? [a, b] : [];
+OperationResult _operation(Polygon a, Polygon b, bool union) {
+  if (a == null && b == null) return OperationResultAbort(const []);
+  if (identical(a, b) || b == null) return OperationResultAbort([a]);
+  if (a == null) return OperationResultAbort([b]);
+
+  if (!a.boundingBox.intersects(b.boundingBox)) {
+    return OperationResultNoOverlap(union ? [a, b] : []);
+  }
 
   forceClockwise(a);
   forceClockwise(b);
@@ -248,14 +251,20 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
 
   // The simple cases
   if (overlaps == 0) {
-    if (firstIsectExits) return [union ? b : a]; // B contains A
+    if (firstIsectExits) {
+      // B contains A
+      final container = union ? b : a;
+      return OperationResultContain([container], container);
+    }
 
     if (pointInsidePolygonPoints(b.points.first, aPoints)) {
       // A contains B
-      return union ? (samePole ? [a] : [b, a]) : [b];
+      if (!union) return OperationResultContain([b], b);
+
+      return OperationResultContain(samePole ? [a] : [b, a], a);
     }
 
-    return union ? [a, b] : [];
+    return OperationResultNoOverlap(union ? [a, b] : []);
   }
 
   var bSortedIsects = List<Intersection>.from(intersects)
@@ -374,12 +383,56 @@ Iterable<Polygon> _operation(Polygon a, Polygon b, bool union) {
     out[0] = withoutDoubles(
         Polygon(points: results.first, positive: firstIsPositive));
 
-    return out..removeWhere((p) => p == null);
+    return OperationResultTransform(out..removeWhere((p) => p == null));
   } else {
-    return results
+    return OperationResultTransform(results
         .map((ps) => withoutDoubles(Polygon(points: ps, positive: a.positive)))
-        .where((p) => p != null);
+        .where((p) => p != null));
   }
+}
+
+abstract class OperationResult {
+  final Iterable<Polygon> output;
+
+  OperationResult(this.output);
+
+  String get name;
+
+  @override
+  String toString() => '"$name" ${output.toList()}';
+}
+
+class OperationResultAbort extends OperationResult {
+  OperationResultAbort(Iterable<Polygon> result) : super(result);
+
+  @override
+  String get name => 'Aborted';
+}
+
+class OperationResultNoOverlap extends OperationResult {
+  OperationResultNoOverlap(Iterable<Polygon> result) : super(result);
+
+  @override
+  String get name => 'No overlap';
+}
+
+class OperationResultContain extends OperationResultNoOverlap {
+  final Polygon container;
+
+  OperationResultContain(List<Polygon> result, this.container) : super(result);
+
+  @override
+  String get name =>
+      'No overlap (' +
+      (container == output.first ? 'A contains B' : 'B contains A') +
+      ')';
+}
+
+class OperationResultTransform extends OperationResult {
+  OperationResultTransform(Iterable<Polygon> result) : super(result);
+
+  @override
+  String get name => 'Transform';
 }
 
 List<List<Point<int>>> _splitSelfIntersections(List<Point<int>> points) {
@@ -581,9 +634,9 @@ class PolygonMerger {
     for (var parent in parents) {
       // subtract the original shape from its (diff) parent
       final subtracted = union(parent, other.polygon);
-      var outerShape = subtracted.first;
-      for (var i = 1; i < subtracted.length; i++) {
-        final sp = subtracted.elementAt(i);
+      var outerShape = subtracted.output.first;
+      for (var i = 1; i < subtracted.output.length; i++) {
+        final sp = subtracted.output.elementAt(i);
         if (sp.boundingBox.containsRectangle(outerShape.boundingBox)) {
           outerShape = sp;
         }
@@ -620,124 +673,100 @@ class PolygonMerger {
       for (var other in layer) {
         parent ??= _parents[other.polygon];
         final result = union(other.polygon, layerPoly);
-        if (result.length == 1) {
-          final merge = result.first;
+        if (result is OperationResultAbort) continue;
+
+        if (result is OperationResultContain) {
+          final merge = result.container;
           if (identical(merge, polygon)) {
             // polygon contains other: remove children, replace other with poly
             // continue;
             _removeHPoly(other);
-            continue;
-          } else if (identical(merge, layerPoly)) {
-            // other is about to be encased in layerPoly
-            continue;
           } else if (identical(merge, other.polygon)) {
-            // (same pole)
             // other contains polygon: result will also be contained here
             lastContainer = other.polygon;
 
-            if (other.children.isEmpty) {
-              // polygon doesn't change anything
-              return;
+            if (samePole) {
+              // (same pole)
+
+              if (other.children.isEmpty) {
+                // polygon doesn't change anything
+                return;
+              }
+            } else {
+              // (diff pole)
+              parentDiff = other;
             }
 
             // return traverseDown;
             nextLayer.addAll(other.children);
             break;
-          } else {
-            isectAny = true;
+          }
+        } else if (result is OperationResultNoOverlap) {
+          if (samePole) {
+            final assignedParents = parentSame[other.polygon];
+            if (assignedParents != null) {
+              _setParent(other.polygon, assignedParents.first);
+            }
+          }
+        } else if (result is OperationResultTransform) {
+          isectAny = true;
 
-            // they intersect and transform into a single new shape
-            // continue traverseDown;
-            nextLayer.addAll(other.children);
-            if (samePole) {
-              if (makeBridge) {
-                final parents = parentSame[other.polygon] ?? [parent];
-                _makeBridge(other, parents, parentSame, nParentSame);
-                parent = null;
-              } else {
-                // other was expanded
-                mergeIntoParent.add(other);
-                layerPoly = merge;
+          // they intersect and transform into a single new shape
+          // continue traverseDown;
+          nextLayer.addAll(other.children);
+          if (samePole) {
+            if (makeBridge) {
+              final parents = parentSame[other.polygon] ?? [parent];
+              for (var poly in result.output) {
+                if (poly.positive != other.polygon.positive) {
+                  _add(poly, _parents[parents[0]]);
+                }
               }
+              _makeBridge(other, parents, parentSame, nParentSame);
+              parent = null;
             } else {
-              // other was subtracted from
+              // other was expanded
+              mergeIntoParent.add(other);
+              for (var poly in result.output) {
+                if (poly.positive == other.polygon.positive) {
+                  layerPoly = poly;
+                } else {
+                  // Union of two same pole polygons lead to new holes
+                  nHoles.add(poly);
+                }
+              }
+            }
+          } else {
+            // other was subtracted from
+            makeBridge = true;
+            if (result.output.length == 1) {
+              _replace(other, result.output.first);
+            } else {
+              // other has been fractured into independent parts,
+              // all resulting polygons must be of diff pole
               makeBridge = true;
-              _replace(other, merge);
-            }
-            continue;
-          }
-        } else if (result.length == 2) {
-          if (result.any((p) => identical(p, other.polygon))) {
-            // No overlap
-            if (!samePole) {
-              if (other.polygon.contains(polygon)) {
-                // (diff pole)
-                // other contains polygon: result will also be contained here
-                // return traverseDown;
-                lastContainer = other.polygon;
-                parentDiff = other;
-                nextLayer.addAll(other.children);
-                break;
+              final children = other.children.toSet();
+              nextLayer.addAll(children);
+              for (var poly in result.output) {
+                _add(poly, parent);
+                for (var child in children) {
+                  if (poly.intersects(child.polygon)) {
+                    nParentSame.update(
+                      child.polygon,
+                      (value) => value..add(poly),
+                      ifAbsent: () => [poly],
+                    );
+                  } else if (poly.contains(child.polygon)) {
+                    // Child is fully contained within a fractured part of this and
+                    // therefore doesn't have to be checked
+                    _setParent(child.polygon, poly);
+                    nextLayer.remove(child);
+                  }
+                }
               }
-            } else {
-              final assignedParents = parentSame[other.polygon];
-              if (assignedParents != null) {
-                _setParent(other.polygon, assignedParents.first);
-              }
-            }
-
-            continue;
-          }
-        }
-
-        isectAny = true;
-
-        if (samePole) {
-          if (makeBridge) {
-            final parents = parentSame[other.polygon] ?? [parent];
-            for (var poly in result) {
-              if (poly.positive != other.polygon.positive) {
-                _add(poly, _parents[parents[0]]);
-              }
-            }
-            _makeBridge(other, parents, parentSame, nParentSame);
-            parent = null;
-          } else {
-            // other was expanded
-            mergeIntoParent.add(other);
-            for (var poly in result) {
-              if (poly.positive == other.polygon.positive) {
-                layerPoly = poly;
-              } else {
-                // Union of two same pole polygons lead to new holes
-                nHoles.add(poly);
-              }
+              _remove(other.polygon);
             }
           }
-        } else {
-          // Other polygon has been fractured into independent parts,
-          // all resulting polygons must be of diff pole
-          makeBridge = true;
-          final children = other.children.toSet();
-          nextLayer.addAll(children);
-          for (var poly in result) {
-            _add(poly, parent);
-            for (var child in children) {
-              if (poly.intersects(child.polygon)) {
-                nParentSame.update(
-                  child.polygon,
-                  (value) => value..add(poly),
-                  ifAbsent: () => [poly],
-                );
-              } else if (poly.contains(child.polygon)) {
-                // Child is fully contained within a fractured part of this and
-                // therefore doesn't have to be checked
-                _setParent(child.polygon, poly);
-                nextLayer.remove(child);
-              }
-            }
-          }
-          _remove(other.polygon);
         }
       }
 
@@ -757,16 +786,15 @@ class PolygonMerger {
           final Map<Polygon, Iterable<Polygon>> holeReplacements = {};
           for (var nHole in nHoles) {
             final split = union(nHole, other.polygon);
-            if (split.length == 2 && split.contains(other.polygon)) {
-              // no intersections between hole and other
-              if (nHole.contains(other.polygon)) {
-                // other is contained inside nHole
-                holeChildren.add(other);
-              }
+            if (split is OperationResultContain) {
+              // other is contained inside nHole
+              holeChildren.add(other);
+              continue;
+            } else if (split is OperationResultNoOverlap) {
               continue;
             }
 
-            holeReplacements[nHole] = split;
+            holeReplacements[nHole] = split.output;
           }
           if (holeReplacements.isNotEmpty) {
             _remove(other.polygon);

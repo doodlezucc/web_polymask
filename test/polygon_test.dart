@@ -401,7 +401,8 @@ void main() {
         Point(1, 8),
       ], positive: false);
 
-      expect(union(polygon, cut), contains(polygonMatchInstance(polygon)));
+      expect(
+          union(polygon, cut).output, contains(polygonMatchInstance(polygon)));
     });
 
     test('Remove at Corners', () {
@@ -553,8 +554,9 @@ void main() {
       final pB = Polygon(points: b);
 
       final result = union(pA, pB);
-      expect(result.length, 1);
-      expect(result.first.boundingBox, pA.boundingBox);
+      expect(result, isA<OperationResultTransform>());
+      expect(result.output, hasLength(1));
+      expect(result.output.first.boundingBox, pA.boundingBox);
     });
 
     test('Unionize Self', () {
@@ -594,7 +596,8 @@ void main() {
       ]);
 
       var result = intersection(smallSquare, polygon);
-      expect(result.length, 0);
+      expect(result, isA<OperationResultNoOverlap>());
+      expect(result.output, isEmpty);
     });
 
     test('One Contains the Other', () {
@@ -607,10 +610,11 @@ void main() {
 
       var result = intersection(bigSquare, polygon);
 
-      expect(result.length, 1);
-      expect(result.first.positive, true);
-      expect(result.first.points, unorderedEquals(polygon.points));
-      expect(result, intersection(polygon, bigSquare));
+      expect(result.output, hasLength(1));
+      expect(result.output.first.positive, isTrue);
+      expect(result.output.first.points, ringMatch(polygon.points));
+      expect(result.runtimeType, intersection(polygon, bigSquare).runtimeType);
+      expect(result.output, intersection(polygon, bigSquare).output);
     });
 
     test('1 Overlap', () {
@@ -622,15 +626,11 @@ void main() {
         Point(9, 3),
       ]);
 
-      var expected = [Point(5, 3), Point(5, 5), Point(7, 5), Point(7, 3)];
+      var expected = [Point(5, 3), Point(7, 3), Point(7, 5), Point(5, 5)];
 
       var result = intersection(rect, polygon);
 
-      expect(result.length, 1);
-      expect(result.first.positive, true);
-      expect(result.first.points, unorderedEquals(expected));
-      expect(
-          intersection(polygon, rect).first.points, unorderedEquals(expected));
+      expect(result, PolygonOperationMatcher([Polygon(points: expected)]));
     });
 
     test('Handle Corners', () {
@@ -645,9 +645,9 @@ void main() {
 
       var result = intersection(rect, polygon);
 
-      expect(result.length, 1);
-      expect(result.first.positive, true);
-      expect(result.first.points, unorderedEquals(expected));
+      expect(result.output, hasLength(1));
+      expect(result.output.first.positive, isTrue);
+      expect(result.output.first.points, ringMatch(expected));
     });
 
     test('2 Overlaps, 0 Holes', () {
@@ -658,9 +658,9 @@ void main() {
 
       var result = intersection(polygon, diagonal);
 
-      expect(result.length, 1);
-      expect(result.first.positive, true);
-      expect(result.first.points, unorderedEquals(expectedPoints));
+      expect(result.output, hasLength(1));
+      expect(result.output.first.positive, isTrue);
+      expect(result.output.first.points, ringMatch(expectedPoints));
     });
 
     test('2 Overlaps, 1 Hole', () {
@@ -669,10 +669,12 @@ void main() {
 
       var result = intersection(polygon, uShape);
 
-      expect(result.length, 2);
-      expect(result.map((e) => e.positive), [true, true]);
-      expect(result.first.points, unorderedEquals(poly1));
-      expect(result.last.points, unorderedEquals(poly2));
+      expect(
+        result,
+        PolygonOperationMatcher(
+          [Polygon(points: poly1), Polygon(points: poly2)],
+        ),
+      );
     });
   });
 

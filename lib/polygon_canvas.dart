@@ -364,7 +364,7 @@ class PolygonCanvas with CanvasLoader {
   }
 
   Iterable<Polygon> _cropPolygon(Polygon polygon) {
-    return intersection(polygon, makeCropRect());
+    return intersection(polygon, makeCropRect()).output;
   }
 
   void fillCanvas() {

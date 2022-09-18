@@ -267,12 +267,16 @@ class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
   final Map errorMap = {};
 
   PolygonOperationMatcher(this.expected, {bool checkOrder = true}) {
-    _matcher = unorderedMatches(expected.map((p) => polygonMatch(
-          p.points,
-          positive: p.positive,
-          map: errorMap,
-          checkOrder: checkOrder,
-        )));
+    _matcher = isA<OperationResult>().having(
+      (result) => result.output,
+      'Polygons',
+      unorderedMatches(expected.map((p) => polygonMatch(
+            p.points,
+            positive: p.positive,
+            map: errorMap,
+            checkOrder: checkOrder,
+          ))),
+    );
   }
 
   @override
@@ -283,8 +287,9 @@ class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
       description.addDescriptionOf(expected);
 
   @override
-  Description describeMismatch(covariant Iterable<Polygon> mismatch,
+  Description describeMismatch(covariant OperationResult result,
       Description desc, Map matchState, bool verbose) {
+    final mismatch = result.output;
     if (errorMap.isEmpty) {
       for (var i = 0; i < mismatch.length; i++) {
         if (!mismatch.elementAt(i).isSimple()) {
