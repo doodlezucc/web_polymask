@@ -11,41 +11,43 @@ class LassoBrush extends PolygonBrush {
   const LassoBrush() : super(employClickEvent: true);
 
   @override
-  BrushPath createNewPath(Point<int> start) => LassoPath([start]);
+  BrushPath createNewPath(PolyMaker maker) => LassoPath(maker, this);
 }
 
 class LassoPath extends BrushPath {
   Polygon polygon;
   int _safelySimple = 0;
 
-  LassoPath(List<Point<int>> points)
-      : polygon = Polygon(points: points),
-        super(points);
+  LassoPath(PolyMaker maker, PolygonBrush brush) : super(maker, brush);
 
   @override
-  bool handleMouseMove(Point<int> p) {
-    if (points.isEmpty ||
-        p.squaredDistanceTo(points.last) > minDistanceSquared) {
-      points.add(p);
-      return true;
-    }
-    return false;
+  void handleStart(Point<int> p) {
+    polygon = maker.newPoly([p]);
   }
 
   @override
-  bool isValid([Point<int> extraPoint]) => isSimple(extraPoint);
+  void handleMouseMove(Point<int> p) {
+    if (p.squaredDistanceTo(polygon.points.last) > minDistanceSquared) {
+      polygon.points.add(p);
+      maker.updatePreview(polygon.points);
+    }
+  }
+
+  @override
+  void handleEnd(Point<int> p) {
+    maker.instantiate();
+  }
+
+  @override
+  bool isValid() => isSimple();
 
   /// Returns true if this polygon (+ `extraPoint`) doesn't intersect itself.
-  bool isSimple([Point<int> extraPoint]) {
+  bool isSimple() {
     if (polygon.points.length < 3) return true;
 
     var nvert = polygon.points.length;
 
-    if (extraPoint != null) nvert++;
-
-    Point<int> elem(int i) => (extraPoint != null && i % nvert == nvert - 1)
-        ? extraPoint
-        : polygon.points[i % nvert];
+    Point<int> elem(int i) => polygon.points[i % nvert];
 
     for (var i = _safelySimple; i < nvert; i++) {
       var u = elem(i);

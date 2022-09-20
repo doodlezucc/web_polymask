@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import '../math/polygon.dart';
 import 'lasso.dart';
 import 'stroke.dart';
 
@@ -8,23 +9,30 @@ abstract class PolygonBrush {
 
   const PolygonBrush({this.employClickEvent = false});
 
-  static const lasso = LassoBrush();
-  static const stroke = StrokeBrush();
+  static final lasso = LassoBrush();
+  static final stroke = StrokeBrush();
 
-  BrushPath startPath(Point<int> start) {
-    return createNewPath(start).._brush = this;
-  }
-
-  BrushPath createNewPath(Point<int> start);
+  BrushPath createNewPath(PolyMaker maker);
+  List<Point<int>> drawCursor(Point<int> p) => [];
 }
 
 abstract class BrushPath<B extends PolygonBrush> {
-  B _brush;
-  B get brush => _brush;
-  final List<Point<int>> points;
+  final PolyMaker maker;
+  final B brush;
+  bool isClicked = false;
 
-  BrushPath(this.points);
+  BrushPath(this.maker, this.brush);
 
-  bool handleMouseMove(Point<int> p);
-  bool isValid([Point<int> extra]) => true;
+  void handleStart(Point<int> p);
+  void handleMouseMove(Point<int> p);
+  void handleEnd(Point<int> p);
+  bool isValid() => true;
+}
+
+class PolyMaker {
+  final Polygon Function(List<Point<int>> points) newPoly;
+  final void Function() instantiate;
+  final void Function(Iterable<Point<int>> points) updatePreview;
+
+  PolyMaker(this.newPoly, this.instantiate, this.updatePreview);
 }

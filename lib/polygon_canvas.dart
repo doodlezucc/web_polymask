@@ -28,9 +28,9 @@ class PolygonCanvas with CanvasLoader {
   Point Function(Point p) modifyPoint;
   bool captureInput;
   BrushPath activePath;
-  SvgPolygon activePolygon;
   Point<int> _currentP;
   int cropMargin;
+  bool _previewPositive = false;
 
   bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
@@ -52,20 +52,21 @@ class PolygonCanvas with CanvasLoader {
     _layersNeg.add(root.querySelectorAll('[polycopy=n]'));
     _initKeyListener();
     _initCursorControls();
+    _setPrevPole(true);
   }
 
   void _onAdd(Polygon p, Polygon parent) {
-    print('add $p to $parent');
+    // print('add $p to $parent');
     _makeSvgPoly(p);
   }
 
   void _onRemove(Polygon p) {
-    print('remove $p');
+    // print('remove $p');
     _svg.remove(p).dispose();
   }
 
   void _onUpdateParent(Polygon p, Polygon parent) {
-    print('reappend $p to $parent');
+    // print('reappend $p to $parent');
     _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
@@ -107,6 +108,13 @@ class PolygonCanvas with CanvasLoader {
     if (triggerChangeEvent) _triggerOnChange();
   }
 
+  void _fromPolygons(Iterable<SvgPolygon> polygons) {
+    clear(triggerChangeEvent: false);
+    for (var src in polygons) {
+      _makeSvgPoly(src.polygon.copy());
+    }
+  }
+
   @override
   void fromData(String base64) {
     clear(triggerChangeEvent: false);
@@ -116,45 +124,44 @@ class PolygonCanvas with CanvasLoader {
         state.parents.map((key, value) => MapEntry(value, _makeSvgPoly(key))));
   }
 
-  void _fromPolygons(Iterable<SvgPolygon> polygons) {
-    clear(triggerChangeEvent: false);
-    for (var src in polygons) {
-      _makeSvgPoly(src.polygon.copy());
-    }
-  }
-
   @override
   String toData() => canvasToData(state.parents.keys);
 
   static bool _isInput(Element e) => e is InputElement || e is TextAreaElement;
 
+  void _setPrevPole(bool positive) {
+    if (positive != _previewPositive) {
+      _previewPositive = positive;
+      _polyprev.classes.toggle('positive-pole', positive);
+    }
+  }
+
   void instantiateActivePolygon({bool includeCursorPoint = true}) {
     if (activePath != null) {
       if (includeCursorPoint && _currentP != null) {
-        activePath..handleMouseMove(_currentP);
+        activePath.handleMouseMove(_currentP);
       }
-
-      try {
-        activePolygon.refreshSvg();
-        addPolygon(activePolygon.polygon);
-      } finally {
-        activePolygon = null;
-        activePath = null;
-      }
+      _sendPathEnd();
     }
+  }
+
+  void _sendPathEnd() {
+    activePath.handleEnd(_currentP);
+    activePath = null;
+    _drawPreview(brush.drawCursor(_currentP));
   }
 
   void _initKeyListener() {
     window.onKeyDown.listen((ev) {
-      if (captureInput && !_isInput(ev.target)) {
+      if (activePath == null && ev.keyCode == 16) {
+        _setPrevPole(false);
+      } else if (captureInput && !_isInput(ev.target)) {
         switch (ev.keyCode) {
           case 24: // Delete
           case 8: // Backspace
           case 27: // Escape
             if (activePath != null) {
-              activePolygon.dispose();
               activePath = null;
-              activePolygon = null;
               _hidePreview();
               ev.preventDefault();
             }
@@ -168,13 +175,17 @@ class PolygonCanvas with CanvasLoader {
         }
       }
     });
+    window.onKeyUp.listen((ev) {
+      if (activePath == null && ev.keyCode == 16) _setPrevPole(true);
+    });
   }
 
   void _hidePreview() => _polyprev.setAttribute('points', '');
 
-  void _drawPreview([Point<int> extra]) {
-    _polyprev.setAttribute('points', activePolygon.currentSvgData);
-    _polyprev.classes.toggle('poly-invalid', !activePath.isValid(extra));
+  void _drawPreview(Iterable<Point<int>> points) {
+    _polyprev.setAttribute('points', pointsToSvg(points));
+    _polyprev.classes
+        .toggle('poly-invalid', activePath != null && !activePath.isValid());
   }
 
   void _initCursorControls() {
@@ -201,42 +212,34 @@ class PolygonCanvas with CanvasLoader {
         document.activeElement.blur();
 
         _currentP = fixedPoint(ev);
-        var createNew = activePolygon == null;
+        var createNew = activePath == null;
         var click = brush.employClickEvent;
 
-        if (ev is MouseEvent && ev.button == 2 && activePolygon != null) {
+        if (ev is MouseEvent && ev.button == 2 && activePath != null) {
           return instantiateActivePolygon();
         }
 
         if (createNew) {
           // Start new polygon
           var pole = !(ev as dynamic).shiftKey;
+          _setPrevPole(pole);
 
-          _polyprev.classes.toggle('positive-pole', pole);
+          Polygon activePolygon;
+          final maker = PolyMaker(
+            (points) => activePolygon = Polygon(points: points, positive: pole),
+            () => addPolygon(activePolygon),
+            (points) => _drawPreview(points),
+          );
 
-          activePath = brush.startPath(_currentP);
-          activePolygon = _makeSvgPoly(Polygon(
-            points: activePath.points,
-            positive: pole,
-          ));
-          _drawPreview();
-
-          if (!activePath.brush.employClickEvent) {
-            addPolygon(activePolygon.polygon.copy());
-          }
+          activePath = brush.createNewPath(maker);
+          activePath.handleStart(_currentP);
 
           moveStreamCtrl = StreamController();
           moveStreamCtrl.stream.listen((point) {
             // Polygon could have been cancelled by user
             if (activePath != null) {
-              if (activePath.handleMouseMove(point)) {
-                activePolygon.refreshSvg();
-                _drawPreview();
-                if (!activePath.brush.employClickEvent) {
-                  addPolygon(activePolygon.polygon.copy());
-                }
-              }
               click = false;
+              activePath.handleMouseMove(point);
             }
           });
         } else {
@@ -250,25 +253,16 @@ class PolygonCanvas with CanvasLoader {
           moveStreamCtrl = null;
         }
 
-        if (createNew &&
-            !click &&
-            activePath != null &&
-            activePath.brush.employClickEvent) {
-          addPolygon(activePolygon.polygon.copy());
+        if (activePath != null && (!brush.employClickEvent || !click)) {
+          _sendPathEnd();
         }
-        activePath = null;
-        activePolygon.dispose();
-        activePolygon = null;
-        _hidePreview();
       });
 
       moveEvent.listen((ev) {
         if (moveStreamCtrl != null) {
-          moveStreamCtrl.add(fixedPoint(ev));
-        } else if (activePolygon != null) {
-          _currentP = fixedPoint(ev);
-          activePolygon.refreshSvg(_currentP);
-          _drawPreview(_currentP);
+          moveStreamCtrl.add(_currentP = fixedPoint(ev));
+        } else if (captureInput) {
+          _drawPreview(brush.drawCursor(fixedPoint(ev)));
         }
       });
     }

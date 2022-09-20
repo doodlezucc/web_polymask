@@ -1,77 +1,87 @@
 import 'dart:math';
 
-import '../math/polygon.dart';
 import 'brush.dart';
 
-const int resolution = 15;
-final List<AngledPoint> unitCircle = computeUnitCircle(resolution);
+const resolution = 15;
+final unitCircle = computeUnitCircle(resolution);
 
 class StrokeBrush extends PolygonBrush {
-  const StrokeBrush();
+  double radius = 80;
 
   @override
-  BrushPath createNewPath(Point<int> start) => StrokePath(start);
+  BrushPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
+
+  @override
+  List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) =>
+      override ?? makeCircleAngled(p, radius).points;
 }
 
-class StrokePath extends BrushPath {
-  double radius = 50;
-  Polygon polygon;
+class StrokePath extends BrushPath<StrokeBrush> {
   Point<int> last;
+  AngleShape circle;
 
-  StrokePath(Point<int> start) : super([]) {
-    _update(start);
+  StrokePath(PolyMaker maker, StrokeBrush brush) : super(maker, brush);
+
+  @override
+  void handleStart(Point<int> p) {
+    circle = makeCircleAngled(p, brush.radius);
+    maker.updatePreview(brush.drawCursor(p, circle.points));
+    _update(p);
   }
 
   @override
-  bool handleMouseMove(Point<int> p) {
-    if (last == null || p.squaredDistanceTo(last) > 200) {
+  void handleMouseMove(Point<int> p) {
+    circle = makeCircleAngled(p, brush.radius);
+    maker.updatePreview(brush.drawCursor(p, circle.points));
+    if (p.squaredDistanceTo(last) > 50) {
       _update(p);
-      return true;
     }
-    return false;
   }
 
   void _update(Point<int> p) {
-    points.clear();
-
-    final circ = makeCircle(p, radius);
-    points.addAll(dragPolygon(circ, last ?? p, p));
+    maker.newPoly(dragPolygon(circle, last ?? p, p));
+    maker.instantiate();
     last = p;
   }
-}
-
-class AngledPoint<T extends num> {
-  final Point<T> point;
-  final double angle;
-
-  AngledPoint(this.point, this.angle);
 
   @override
-  String toString() {
-    final deg = (angle * 180 / pi).toStringAsFixed(1);
-    return '$point at $deg°';
-  }
+  void handleEnd(Point<int> p) {}
 }
 
-List<AngledPoint<int>> makeCircle(Point<int> center, double radius) {
-  return unitCircle.map((p) {
-    return AngledPoint(
-      Point(
-        center.x + (p.point.x * radius).round(),
-        center.y + (p.point.y * radius).round(),
-      ),
-      p.angle,
-    );
-  }).toList(growable: false);
+class AngleShape<T extends num> {
+  final List<Point<T>> points;
+  final List<double> angles;
+
+  int get length => angles.length;
+
+  AngleShape(this.points, this.angles);
 }
 
-List<AngledPoint<double>> computeUnitCircle(int resolution) {
+AngleShape<int> makeCircleAngled(Point<int> center, double radius) {
+  return AngleShape(
+    unitCircle.points.map((p) {
+      return Point(
+        center.x + (p.x * radius).round(),
+        center.y + (p.y * radius).round(),
+      );
+    }).toList(),
+    unitCircle.angles,
+  );
+}
+
+AngleShape<double> computeUnitCircle(int resolution) {
   final angleOffset = pi / resolution;
-  return List.generate(resolution, (i) {
-    var t = 2 * pi * i / resolution;
-    return AngledPoint(
-        Point(sin(t), -cos(t)), (pi + angleOffset + t) % (2 * pi) - pi);
-  });
+
+  final points = <Point<double>>[];
+  final angles = <double>[];
+
+  for (var i = 0; i < resolution; i++) {
+    final t = 2 * pi * i / resolution;
+    points.add(Point(sin(t), -cos(t)));
+    angles.add((pi + angleOffset + t) % (2 * pi) - pi);
+  }
+
+  return AngleShape(points, angles);
 }
 
 const tau = 2 * pi;
@@ -84,12 +94,12 @@ bool isAngleBetween(double angle, double a, double b) {
 }
 
 List<Point<int>> dragPolygon(
-  List<AngledPoint<int>> shapeAtB,
+  AngleShape<int> shapeAtB,
   Point<int> centerA,
   Point<int> centerB,
 ) {
   final offset = centerA - centerB;
-  if (offset == const Point(0, 0)) return shapeAtB.map((e) => e.point).toList();
+  if (offset == const Point(0, 0)) return shapeAtB.points;
 
   final angle = atan2(offset.y, offset.x);
   final invAngle = (angle + tau) % tau - pi;
@@ -97,36 +107,38 @@ List<Point<int>> dragPolygon(
   List<Point<int>> out = [];
 
   final npoint = shapeAtB.length;
-  final first = shapeAtB.first;
-  final firstAtA = isAngleBetween(first.angle, angle, invAngle);
+  final firstAngle = shapeAtB.angles.first;
+  final firstPoint = shapeAtB.points.first;
+  final firstAtA = isAngleBetween(firstAngle, angle, invAngle);
 
   if (firstAtA) {
-    out.add(first.point + offset);
+    out.add(firstPoint + offset);
   } else {
-    out.add(first.point);
+    out.add(firstPoint);
   }
 
   bool atA = firstAtA;
   for (var i = 1; i < npoint; i++) {
-    final s = shapeAtB[i];
-    final newAtA = isAngleBetween(s.angle, angle, invAngle);
+    final p = shapeAtB.points[i];
+    final a = shapeAtB.angles[i];
+    final newAtA = isAngleBetween(a, angle, invAngle);
     if (newAtA) {
       if (!atA) {
-        out.add(s.point);
-        out.add(s.point + offset);
+        out.add(p);
+        out.add(p + offset);
       }
     } else {
-      if (atA) out.add(s.point + offset);
-      out.add(s.point);
+      if (atA) out.add(p + offset);
+      out.add(p);
     }
     atA = newAtA;
   }
 
   if (atA != firstAtA) {
     if (atA) {
-      out.add(first.point + offset);
+      out.add(firstPoint + offset);
     } else {
-      out.add(first.point);
+      out.add(firstPoint);
     }
   }
   return out;

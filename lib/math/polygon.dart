@@ -109,20 +109,7 @@ class Polygon {
   }
 
   String toSvgData([Point<int> extraPoint]) {
-    if (points.isEmpty) return '';
-
-    String writePoint(Point<int> p) => '${p.x},${p.y}';
-
-    var s = writePoint(points.first);
-    for (var p in points.skip(1)) {
-      s += ' ' + writePoint(p);
-    }
-
-    if (extraPoint != null) {
-      s += ' ' + writePoint(extraPoint);
-    }
-
-    return s;
+    return pointsToSvg(extraPoint == null ? points : [...points, extraPoint]);
   }
 
   Polygon copy({bool positive}) =>
@@ -136,13 +123,15 @@ class Polygon {
   }
 }
 
-extension RectangleExtra on Rectangle {
-  /// Tests whether `this` entirely contains [another].
-  /// Touching edges return false.
-  bool containsEntirely(Rectangle another) {
-    return left < another.left &&
-        left + width > another.left + another.width &&
-        top < another.top &&
-        top + height > another.top + another.height;
+String pointsToSvg(Iterable<Point<int>> points) {
+  if (points.isEmpty) return '';
+
+  String writePoint(Point<int> p) => '${p.x},${p.y}';
+
+  var s = writePoint(points.first);
+  for (var p in points.skip(1)) {
+    s += ' ' + writePoint(p);
   }
+
+  return s;
 }
