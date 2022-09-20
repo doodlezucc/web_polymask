@@ -121,7 +121,7 @@ class PolygonCanvas with CanvasLoader {
     final polygons = canvasFromData(base64);
     state = PolygonState.assignParents(polygons);
     _svg.addAll(
-        state.parents.map((key, value) => MapEntry(value, _makeSvgPoly(key))));
+        state.parents.map((key, value) => MapEntry(key, _makeSvgPoly(key))));
   }
 
   @override
@@ -282,8 +282,8 @@ class PolygonCanvas with CanvasLoader {
 
   void addPolygon(Polygon polygon) {
     final polyState = _svg.values.toList();
-    print('State: ${state}');
-    print('Add ${polygon}');
+    // print('State: ${state}');
+    // print('Add ${polygon}');
 
     try {
       _addPolygon(polygon);
