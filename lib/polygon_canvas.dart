@@ -21,23 +21,41 @@ class PolygonCanvas with CanvasLoader {
   final _layersPos = <List<svg.SvgElement>>[];
   final _layersNeg = <List<svg.SvgElement>>[];
 
-  void Function() onChange;
-  PolygonBrush brush = PolygonBrush.lasso;
+  PolygonBrush _brush = PolygonBrush.lasso;
+  PolygonBrush get brush => _brush;
+  set brush(PolygonBrush brush) {
+    if (activePath != null) return;
+    _brush = brush;
+  }
 
+  bool _captureInput;
+  bool get captureInput => _captureInput;
+  set captureInput(bool captureInput) {
+    _captureInput = captureInput;
+    if (!captureInput) {
+      if (activePath != null) {
+        _cancelActivePath();
+      }
+      _drawPreview([]);
+    } else {
+      _applyPrevPole();
+    }
+  }
+
+  void Function() onChange;
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
-  bool captureInput;
   BrushPath activePath;
   Point<int> _currentP;
   int cropMargin;
-  bool _previewPositive = false;
+  bool _previewPositive = true;
 
   bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
 
   PolygonCanvas(
     this.root, {
-    this.captureInput = true,
+    bool captureInput = true,
     this.onChange,
     this.acceptStartEvent,
     this.modifyPoint,
@@ -52,7 +70,7 @@ class PolygonCanvas with CanvasLoader {
     _layersNeg.add(root.querySelectorAll('[polycopy=n]'));
     _initKeyListener();
     _initCursorControls();
-    _setPrevPole(true);
+    this.captureInput = captureInput;
   }
 
   void _onAdd(Polygon p, Polygon parent) {
@@ -132,8 +150,14 @@ class PolygonCanvas with CanvasLoader {
   void _setPrevPole(bool positive) {
     if (positive != _previewPositive) {
       _previewPositive = positive;
-      _polyprev.classes.toggle('positive-pole', positive);
+      if (activePath == null) {
+        _applyPrevPole();
+      }
     }
+  }
+
+  void _applyPrevPole() {
+    _polyprev.classes.toggle('positive-pole', _previewPositive);
   }
 
   void instantiateActivePolygon({bool includeCursorPoint = true}) {
@@ -162,6 +186,7 @@ class PolygonCanvas with CanvasLoader {
     activePath.handleEnd(_currentP);
     _drawActiveBrushCursor();
     activePath = null;
+    _applyPrevPole();
   }
 
   void _drawActiveBrushCursor() {
@@ -207,6 +232,12 @@ class PolygonCanvas with CanvasLoader {
     );
   }
 
+  void updatePreview() {
+    if (activePath == null) {
+      _drawPreview(brush.drawCursor(_currentP));
+    }
+  }
+
   void _initCursorControls() {
     StreamController<Point<int>> moveStreamCtrl;
 
@@ -248,7 +279,10 @@ class PolygonCanvas with CanvasLoader {
           final maker = PolyMaker(
             (points) => activePolygon = Polygon(points: points, positive: pole),
             () => addPolygon(activePolygon),
-            (points) => _drawPreview(points, _currentP),
+            (points) => _drawPreview(
+              points,
+              activePath.maker.isClicked ? _currentP : null,
+            ),
           );
           maker.isClicked = click;
 
@@ -287,10 +321,13 @@ class PolygonCanvas with CanvasLoader {
       });
 
       moveEvent.listen((ev) {
-        if (moveStreamCtrl != null) {
-          moveStreamCtrl.add(_currentP = fixedPoint(ev));
-        } else if (captureInput) {
-          _drawPreview((activePath?.brush ?? brush).drawCursor(fixedPoint(ev)));
+        if (captureInput) {
+          _currentP = fixedPoint(ev);
+          if (moveStreamCtrl != null) {
+            moveStreamCtrl.add(_currentP);
+          } else {
+            _drawPreview((activePath?.brush ?? brush).drawCursor(_currentP));
+          }
         }
       });
     }
