@@ -19,20 +19,21 @@ abstract class PolygonBrush {
 abstract class BrushPath<B extends PolygonBrush> {
   final PolyMaker maker;
   final B brush;
-  bool isClicked = false;
 
   BrushPath(this.maker, this.brush);
 
   void handleStart(Point<int> p);
   void handleMouseMove(Point<int> p);
-  void handleEnd(Point<int> p);
-  bool isValid() => true;
+  void handleMouseClick(Point<int> p) {}
+  void handleEnd(Point<int> p) {}
+  bool isValid([Point<int> extra]) => true;
 }
 
 class PolyMaker {
   final Polygon Function(List<Point<int>> points) newPoly;
   final void Function() instantiate;
   final void Function(Iterable<Point<int>> points) updatePreview;
+  bool isClicked = false;
 
   PolyMaker(this.newPoly, this.instantiate, this.updatePreview);
 }

@@ -22,7 +22,7 @@ class PolygonCanvas with CanvasLoader {
   final _layersNeg = <List<svg.SvgElement>>[];
 
   void Function() onChange;
-  PolygonBrush brush = PolygonBrush.stroke;
+  PolygonBrush brush = PolygonBrush.lasso;
 
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
@@ -139,16 +139,33 @@ class PolygonCanvas with CanvasLoader {
   void instantiateActivePolygon({bool includeCursorPoint = true}) {
     if (activePath != null) {
       if (includeCursorPoint && _currentP != null) {
-        activePath.handleMouseMove(_currentP);
+        if (activePath.maker.isClicked) {
+          activePath.handleMouseClick(_currentP);
+        } else {
+          activePath.handleMouseMove(_currentP);
+        }
       }
+
       _sendPathEnd();
     }
   }
 
-  void _sendPathEnd() {
-    activePath.handleEnd(_currentP);
+  void _cancelActivePath() {
+    _drawActiveBrushCursor();
     activePath = null;
-    _drawPreview(brush.drawCursor(_currentP));
+  }
+
+  void _sendPathEnd() {
+    if (!activePath.isValid()) {
+      return _cancelActivePath();
+    }
+    activePath.handleEnd(_currentP);
+    _drawActiveBrushCursor();
+    activePath = null;
+  }
+
+  void _drawActiveBrushCursor() {
+    _drawPreview(activePath.brush.drawCursor(_currentP));
   }
 
   void _initKeyListener() {
@@ -161,8 +178,7 @@ class PolygonCanvas with CanvasLoader {
           case 8: // Backspace
           case 27: // Escape
             if (activePath != null) {
-              activePath = null;
-              _hidePreview();
+              _cancelActivePath();
               ev.preventDefault();
             }
             return;
@@ -180,12 +196,15 @@ class PolygonCanvas with CanvasLoader {
     });
   }
 
-  void _hidePreview() => _polyprev.setAttribute('points', '');
-
-  void _drawPreview(Iterable<Point<int>> points) {
-    _polyprev.setAttribute('points', pointsToSvg(points));
-    _polyprev.classes
-        .toggle('poly-invalid', activePath != null && !activePath.isValid());
+  void _drawPreview(Iterable<Point<int>> points, [Point<int> extra]) {
+    _polyprev.setAttribute(
+      'points',
+      pointsToSvg([...points, if (extra != null) extra]),
+    );
+    _polyprev.classes.toggle(
+      'poly-invalid',
+      activePath != null && !activePath.isValid(extra),
+    );
   }
 
   void _initCursorControls() {
@@ -214,6 +233,7 @@ class PolygonCanvas with CanvasLoader {
         _currentP = fixedPoint(ev);
         var createNew = activePath == null;
         var click = brush.employClickEvent;
+        var clickedOnce = false;
 
         if (ev is MouseEvent && ev.button == 2 && activePath != null) {
           return instantiateActivePolygon();
@@ -228,27 +248,35 @@ class PolygonCanvas with CanvasLoader {
           final maker = PolyMaker(
             (points) => activePolygon = Polygon(points: points, positive: pole),
             () => addPolygon(activePolygon),
-            (points) => _drawPreview(points),
+            (points) => _drawPreview(points, _currentP),
           );
+          maker.isClicked = click;
 
           activePath = brush.createNewPath(maker);
           activePath.handleStart(_currentP);
 
           moveStreamCtrl = StreamController();
-          moveStreamCtrl.stream.listen((point) {
+          moveStreamCtrl.stream.listen((point) async {
             // Polygon could have been cancelled by user
             if (activePath != null) {
-              click = false;
+              if (!clickedOnce) {
+                click = false;
+                maker.isClicked = false;
+              }
               activePath.handleMouseMove(point);
+            } else {
+              await moveStreamCtrl.close();
+              moveStreamCtrl = null;
             }
           });
         } else {
           // Add single point to active polygon
-          activePath.handleMouseMove(_currentP);
+          activePath.handleMouseClick(_currentP);
         }
 
         await endEvent.first;
-        if (moveStreamCtrl != null) {
+        clickedOnce = true;
+        if (!click && moveStreamCtrl != null) {
           await moveStreamCtrl.close();
           moveStreamCtrl = null;
         }
@@ -262,7 +290,7 @@ class PolygonCanvas with CanvasLoader {
         if (moveStreamCtrl != null) {
           moveStreamCtrl.add(_currentP = fixedPoint(ev));
         } else if (captureInput) {
-          _drawPreview(brush.drawCursor(fixedPoint(ev)));
+          _drawPreview((activePath?.brush ?? brush).drawCursor(fixedPoint(ev)));
         }
       });
     }

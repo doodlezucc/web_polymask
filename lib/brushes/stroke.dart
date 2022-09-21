@@ -43,9 +43,6 @@ class StrokePath extends BrushPath<StrokeBrush> {
     maker.instantiate();
     last = p;
   }
-
-  @override
-  void handleEnd(Point<int> p) {}
 }
 
 class AngleShape<T extends num> {
