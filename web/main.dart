@@ -1,8 +1,6 @@
 import 'dart:html';
 import 'dart:js_util';
 
-import 'package:web_polymask/brushes/brush.dart';
-import 'package:web_polymask/brushes/stroke.dart';
 import 'package:web_polymask/polygon_canvas.dart';
 
 void main() {
@@ -28,19 +26,11 @@ void main() {
         return ev.preventDefault();
       }
     } else if (ev.keyCode == 83) {
-      if (canvas.brush == PolygonBrush.lasso) {
-        canvas.brush = PolygonBrush.stroke;
+      if (canvas.activeTool == canvas.toolBrushLasso) {
+        canvas.activeTool = canvas.toolBrushStroke;
       } else {
-        canvas.brush = PolygonBrush.lasso;
+        canvas.activeTool = canvas.toolBrushLasso;
       }
-      canvas.updatePreview();
-    }
-  });
-
-  window.onMouseWheel.listen((ev) {
-    final br = canvas.brush;
-    if (br is StrokeBrush) {
-      br.radius -= ev.deltaY.sign * 10;
       canvas.updatePreview();
     }
   });

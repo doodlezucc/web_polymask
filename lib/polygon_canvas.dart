@@ -2,17 +2,18 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:svg' as svg;
 
+import 'package:web_polymask/brushes/toolbox.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 
 import 'binary.dart';
-import 'brushes/brush.dart';
+import 'brushes/tool.dart';
 import 'interactive/svg_polygon.dart';
 import 'math/point_convert.dart';
 import 'math/polygon.dart';
 import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
-class PolygonCanvas with CanvasLoader {
+class PolygonCanvas with CanvasLoader, PolygonToolbox {
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -21,11 +22,10 @@ class PolygonCanvas with CanvasLoader {
   final _layersPos = <List<svg.SvgElement>>[];
   final _layersNeg = <List<svg.SvgElement>>[];
 
-  PolygonBrush _brush = PolygonBrush.lasso;
-  PolygonBrush get brush => _brush;
-  set brush(PolygonBrush brush) {
+  @override
+  set activeTool(PolygonTool tool) {
     if (activePath != null) return;
-    _brush = brush;
+    super.activeTool = tool;
   }
 
   bool _captureInput;
@@ -45,7 +45,7 @@ class PolygonCanvas with CanvasLoader {
   void Function() onChange;
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
-  BrushPath activePath;
+  ToolPath activePath;
   Point<int> _currentP;
   int cropMargin;
   bool _previewPositive = true;
@@ -190,7 +190,7 @@ class PolygonCanvas with CanvasLoader {
   }
 
   void _drawActiveBrushCursor() {
-    _drawPreview(activePath.brush.drawCursor(_currentP));
+    _drawPreview(activePath.tool.drawCursor(_currentP));
   }
 
   void _initKeyListener() {
@@ -234,11 +234,19 @@ class PolygonCanvas with CanvasLoader {
 
   void updatePreview() {
     if (activePath == null) {
-      _drawPreview(brush.drawCursor(_currentP));
+      _drawPreview(activeTool.drawCursor(_currentP));
     }
   }
 
   void _initCursorControls() {
+    window.onMouseWheel.listen((ev) {
+      if (activePath != null) return;
+
+      if (activeTool.handleMouseWheel(ev.deltaY.sign)) {
+        updatePreview();
+      }
+    });
+
     StreamController<Point<int>> moveStreamCtrl;
 
     void listenToCursorEvents<T extends Event>(
@@ -263,7 +271,7 @@ class PolygonCanvas with CanvasLoader {
 
         _currentP = fixedPoint(ev);
         var createNew = activePath == null;
-        var click = brush.employClickEvent;
+        var click = activeTool.employClickEvent;
         var clickedOnce = false;
 
         if (ev is MouseEvent && ev.button == 2 && activePath != null) {
@@ -286,7 +294,7 @@ class PolygonCanvas with CanvasLoader {
           );
           maker.isClicked = click;
 
-          activePath = brush.createNewPath(maker);
+          activePath = activeTool.createNewPath(maker);
           activePath.handleStart(_currentP);
 
           moveStreamCtrl = StreamController();
@@ -315,7 +323,7 @@ class PolygonCanvas with CanvasLoader {
           moveStreamCtrl = null;
         }
 
-        if (activePath != null && (!brush.employClickEvent || !click)) {
+        if (activePath != null && (!activeTool.employClickEvent || !click)) {
           _sendPathEnd();
         }
       });
@@ -326,7 +334,8 @@ class PolygonCanvas with CanvasLoader {
           if (moveStreamCtrl != null) {
             moveStreamCtrl.add(_currentP);
           } else {
-            _drawPreview((activePath?.brush ?? brush).drawCursor(_currentP));
+            _drawPreview(
+                (activePath?.tool ?? activeTool).drawCursor(_currentP));
           }
         }
       });

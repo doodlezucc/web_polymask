@@ -1,26 +1,28 @@
 import 'dart:math';
 
 import '../math/polygon.dart';
-import 'lasso.dart';
-import 'stroke.dart';
 
-abstract class PolygonBrush {
+abstract class PolygonTool {
+  final String id;
   final bool employClickEvent;
+  final bool employMouseWheel;
 
-  const PolygonBrush({this.employClickEvent = false});
+  const PolygonTool(
+    this.id, {
+    this.employClickEvent = false,
+    this.employMouseWheel = false,
+  });
 
-  static final lasso = LassoBrush();
-  static final stroke = StrokeBrush();
-
-  BrushPath createNewPath(PolyMaker maker);
-  List<Point<int>> drawCursor(Point<int> p) => [];
+  ToolPath createNewPath(PolyMaker maker);
+  List<Point<int>> drawCursor(Point<int> p) => [p];
+  bool handleMouseWheel(int amount) => false;
 }
 
-abstract class BrushPath<B extends PolygonBrush> {
+abstract class ToolPath<T extends PolygonTool> {
   final PolyMaker maker;
-  final B brush;
+  final T tool;
 
-  BrushPath(this.maker, this.brush);
+  ToolPath(this.maker, this.tool);
 
   void handleStart(Point<int> p);
   void handleMouseMove(Point<int> p);

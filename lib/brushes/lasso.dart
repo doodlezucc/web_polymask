@@ -1,24 +1,26 @@
 import 'dart:math';
 
-import 'package:web_polymask/brushes/brush.dart';
+import 'package:web_polymask/brushes/tool.dart';
 import 'package:web_polymask/math/polygon.dart';
 
 import '../math/polymath.dart';
 
 const minDistanceSquared = 10;
 
-class LassoBrush extends PolygonBrush {
-  const LassoBrush() : super(employClickEvent: true);
+class LassoBrush extends PolygonTool {
+  static const toolId = 'lasso';
+
+  const LassoBrush() : super(toolId, employClickEvent: true);
 
   @override
-  BrushPath createNewPath(PolyMaker maker) => LassoPath(maker, this);
+  ToolPath createNewPath(PolyMaker maker) => LassoPath(maker, this);
 }
 
-class LassoPath extends BrushPath {
+class LassoPath extends ToolPath {
   Polygon polygon;
   int _safelySimple = 0;
 
-  LassoPath(PolyMaker maker, PolygonBrush brush) : super(maker, brush);
+  LassoPath(PolyMaker maker, PolygonTool brush) : super(maker, brush);
 
   @override
   void handleStart(Point<int> p) {

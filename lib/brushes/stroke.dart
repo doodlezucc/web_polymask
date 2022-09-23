@@ -1,22 +1,34 @@
 import 'dart:math';
 
-import 'brush.dart';
+import 'tool.dart';
 
 const resolution = 15;
 final unitCircle = computeUnitCircle(resolution);
 
-class StrokeBrush extends PolygonBrush {
+class StrokeBrush extends PolygonTool {
+  static const toolId = 'stroke';
   double radius = 80;
 
+  StrokeBrush() : super(toolId);
+
   @override
-  BrushPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
+  ToolPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
 
   @override
   List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) =>
       override ?? makeCircleAngled(p, radius).points;
+
+  @override
+  bool handleMouseWheel(int amount) {
+    final nRadius = radius - 5 * amount;
+    if (nRadius <= 0) return false;
+
+    radius = nRadius;
+    return true;
+  }
 }
 
-class StrokePath extends BrushPath<StrokeBrush> {
+class StrokePath extends ToolPath<StrokeBrush> {
   Point<int> last;
   AngleShape circle;
 
@@ -24,15 +36,15 @@ class StrokePath extends BrushPath<StrokeBrush> {
 
   @override
   void handleStart(Point<int> p) {
-    circle = makeCircleAngled(p, brush.radius);
-    maker.updatePreview(brush.drawCursor(p, circle.points));
+    circle = makeCircleAngled(p, tool.radius);
+    maker.updatePreview(tool.drawCursor(p, circle.points));
     _update(p);
   }
 
   @override
   void handleMouseMove(Point<int> p) {
-    circle = makeCircleAngled(p, brush.radius);
-    maker.updatePreview(brush.drawCursor(p, circle.points));
+    circle = makeCircleAngled(p, tool.radius);
+    maker.updatePreview(tool.drawCursor(p, circle.points));
     if (p.squaredDistanceTo(last) > 50) {
       _update(p);
     }
