@@ -20,14 +20,14 @@ mixin PolygonToolbox {
     _activeTool = tool;
   }
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> settingsToJson() => {
         'active': activeTool.id,
         ...Map.fromEntries(toolMap.entries
             .map((e) => MapEntry(e.key, e.value.toJson()))
             .where((e) => e.value.isNotEmpty)),
       };
 
-  void fromJson(Map<String, dynamic> json) {
+  void settingsFromJson(Map<String, dynamic> json) {
     activeTool = json['active'] ?? activeTool;
     for (var e in toolMap.entries) {
       final toolJ = json[e.key];

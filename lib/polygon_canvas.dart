@@ -26,7 +26,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   set activeTool(PolygonTool tool) {
     if (activePath != null) return;
     super.activeTool = tool;
-    onSettingsChange();
+
+    if (onSettingsChange != null) onSettingsChange();
   }
 
   bool _captureInput;

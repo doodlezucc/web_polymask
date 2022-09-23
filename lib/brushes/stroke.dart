@@ -2,38 +2,69 @@ import 'dart:math';
 
 import 'tool.dart';
 
+const shapeCircle = 'circle';
+const shapeSquare = 'square';
+
 const resolution = 15;
 final unitCircle = computeUnitCircle(resolution);
 
+const _squarePoints = [Point(-1, -1), Point(1, -1), Point(1, 1), Point(-1, 1)];
+const _squareAngles = [0.0, pi / 2, pi, -pi / 2];
+final unitSquare = AngleShape(_squarePoints, _squareAngles);
+
 class StrokeBrush extends PolygonTool {
   static const toolId = 'stroke';
-  double radius = 80;
 
-  StrokeBrush() : super(toolId);
+  AngleShape _shape;
+  String _shapeId;
+  String get shape => _shapeId;
+  set shape(String shapeId) {
+    _shapeId = shapeId;
+    _shape = shapeFromId(shapeId);
+  }
+
+  double radius = 2;
+  double get radiusScaled => exp(radius) * 5;
+
+  StrokeBrush() : super(toolId) {
+    shape = shapeSquare;
+  }
 
   @override
   ToolPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
 
   @override
   List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) =>
-      override ?? makeCircleAngled(p, radius).points;
+      override ?? makeAngleShape(_shape, p, radiusScaled).points;
 
   @override
   bool handleMouseWheel(int amount) {
-    final nRadius = radius - 5 * amount;
+    final nRadius = radius - 0.2 * amount;
     if (nRadius <= 0) return false;
 
     radius = nRadius;
     return true;
   }
 
+  static AngleShape shapeFromId(String shapeId) {
+    switch (shapeId) {
+      case shapeCircle:
+        return unitCircle;
+      case shapeSquare:
+        return unitSquare;
+    }
+    return null;
+  }
+
   @override
   Map<String, dynamic> toJson() => {
+        'shape': shape,
         'radius': radius,
       };
 
   @override
   void fromJson(Map<String, dynamic> json) {
+    shape = json['shape'] ?? shape;
     radius = json['radius'] ?? radius;
   }
 }
@@ -46,14 +77,14 @@ class StrokePath extends ToolPath<StrokeBrush> {
 
   @override
   void handleStart(Point<int> p) {
-    circle = makeCircleAngled(p, tool.radius);
+    circle = makeAngleShape(tool._shape, p, tool.radiusScaled);
     maker.updatePreview(tool.drawCursor(p, circle.points));
     _update(p);
   }
 
   @override
   void handleMouseMove(Point<int> p) {
-    circle = makeCircleAngled(p, tool.radius);
+    circle = makeAngleShape(tool._shape, p, tool.radiusScaled);
     maker.updatePreview(tool.drawCursor(p, circle.points));
     if (p.squaredDistanceTo(last) > 50) {
       _update(p);
@@ -76,15 +107,19 @@ class AngleShape<T extends num> {
   AngleShape(this.points, this.angles);
 }
 
-AngleShape<int> makeCircleAngled(Point<int> center, double radius) {
+AngleShape<int> makeAngleShape(
+  AngleShape shape,
+  Point<int> center,
+  double radius,
+) {
   return AngleShape(
-    unitCircle.points.map((p) {
+    shape.points.map((p) {
       return Point(
         center.x + (p.x * radius).round(),
         center.y + (p.y * radius).round(),
       );
     }).toList(),
-    unitCircle.angles,
+    shape.angles,
   );
 }
 
