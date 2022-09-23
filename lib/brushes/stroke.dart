@@ -26,6 +26,16 @@ class StrokeBrush extends PolygonTool {
     radius = nRadius;
     return true;
   }
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'radius': radius,
+      };
+
+  @override
+  void fromJson(Map<String, dynamic> json) {
+    radius = json['radius'] ?? radius;
+  }
 }
 
 class StrokePath extends ToolPath<StrokeBrush> {

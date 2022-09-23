@@ -16,6 +16,9 @@ abstract class PolygonTool {
   ToolPath createNewPath(PolyMaker maker);
   List<Point<int>> drawCursor(Point<int> p) => [p];
   bool handleMouseWheel(int amount) => false;
+
+  Map<String, dynamic> toJson() => const {};
+  void fromJson(Map<String, dynamic> json) {}
 }
 
 abstract class ToolPath<T extends PolygonTool> {

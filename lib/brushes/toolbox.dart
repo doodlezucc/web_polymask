@@ -19,4 +19,21 @@ mixin PolygonToolbox {
   set activeTool(PolygonTool tool) {
     _activeTool = tool;
   }
+
+  Map<String, dynamic> toJson() => {
+        'active': activeTool.id,
+        ...Map.fromEntries(toolMap.entries
+            .map((e) => MapEntry(e.key, e.value.toJson()))
+            .where((e) => e.value.isNotEmpty)),
+      };
+
+  void fromJson(Map<String, dynamic> json) {
+    activeTool = json['active'] ?? activeTool;
+    for (var e in toolMap.entries) {
+      final toolJ = json[e.key];
+      if (toolJ != null) {
+        e.value.fromJson(toolJ);
+      }
+    }
+  }
 }

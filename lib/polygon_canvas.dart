@@ -26,6 +26,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   set activeTool(PolygonTool tool) {
     if (activePath != null) return;
     super.activeTool = tool;
+    onSettingsChange();
   }
 
   bool _captureInput;
@@ -43,6 +44,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void Function() onChange;
+  void Function() onSettingsChange;
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
   ToolPath activePath;
@@ -57,6 +59,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     this.root, {
     bool captureInput = true,
     this.onChange,
+    this.onSettingsChange,
     this.acceptStartEvent,
     this.modifyPoint,
     this.cropMargin = 2,
@@ -244,6 +247,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
       if (activeTool.handleMouseWheel(ev.deltaY.sign)) {
         updatePreview();
+        if (onSettingsChange != null) onSettingsChange();
       }
     });
 
