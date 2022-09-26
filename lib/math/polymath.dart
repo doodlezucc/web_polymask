@@ -518,7 +518,7 @@ List<Point<int>> removeDoubles(List<Point<int>> points) {
     }
   }
 
-  _removeDeadEnds(nPoints);
+  removeDeadEnds(nPoints);
   if (nPoints.isEmpty) return null;
 
   return nPoints;
@@ -528,7 +528,7 @@ List<Point<int>> removeDoubles(List<Point<int>> points) {
 /// when drawn on a canvas.
 ///
 /// Not very efficient, but it work :)
-void _removeDeadEnds(List<Point<int>> points) {
+void removeDeadEnds(List<Point<int>> points) {
   var len = points.length;
 
   int _area(List<Point<int>> points, int off) {

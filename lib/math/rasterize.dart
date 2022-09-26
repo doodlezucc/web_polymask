@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:grid/grid.dart';
 
 import 'polygon.dart';
+import 'polymath.dart';
 
 Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
   final bitmap = <List<bool>>[];
@@ -128,6 +129,8 @@ Iterable<Polygon> squareGridPolyFromBitmap(
       }
     }
   } while (!(p == initial && orientation == initialOrientation));
+
+  removeDeadEnds(points);
 
   return [Polygon(points: points)];
 }
