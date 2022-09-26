@@ -44,7 +44,6 @@ Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
     }
   }
 
-  print(bitmap);
   return squareGridPolyFromBitmap(gridBbox.topLeft.cast(), bitmap, grid);
 }
 
@@ -56,10 +55,14 @@ const orientationTop = 3;
 Iterable<Polygon> squareGridPolyFromBitmap(
   Point<int> mapZero,
   List<List<bool>> solid,
-  TiledGrid grid,
-) {
-  Point<int> initial = findFirstSolid2d(solid);
-  if (initial == null) return null;
+  TiledGrid grid, [
+  Point<int> offset,
+  Set<Point<int>> visited,
+]) {
+  visited ??= {};
+
+  Point<int> initial = findFirstSolid2d(solid, offset, visited);
+  if (initial == null) return [];
 
   Point<int> scale(Point<int> q) {
     return grid.gridToWorldSpace(mapZero + q).cast();
@@ -78,9 +81,7 @@ Iterable<Polygon> squareGridPolyFromBitmap(
   Point<int> p = initial;
   final points = <Point<int>>[];
 
-  if (isSolid(initial = (p + Point(-1, 0)))) {
-    orientation = orientationLeft;
-  } else if (isSolid(initial = (p + Point(0, 1)))) {
+  if (isSolid(initial = (p + Point(0, 1)))) {
     orientation = orientationTop;
   } else if (isSolid(initial = (p + Point(1, 0)))) {
     orientation = orientationRight;
@@ -89,12 +90,15 @@ Iterable<Polygon> squareGridPolyFromBitmap(
       Polygon.fromRect(Rectangle.fromPoints(
         scale(p),
         scale(p + Point(1, 1)),
-      ))
+      )),
+      ...squareGridPolyFromBitmap(
+          mapZero, solid, grid, p + Point(2, 0), visited),
     ];
   }
 
   int initialOrientation = orientation;
   p = initial;
+  visited.add(p);
 
   do {
     for (var i = 0; i < 4; i++) {
@@ -109,6 +113,7 @@ Iterable<Polygon> squareGridPolyFromBitmap(
         // Move to next solid block
         orientation = check;
         p = q;
+        visited.add(p);
         break;
       } else {
         // Make line
@@ -132,14 +137,36 @@ Iterable<Polygon> squareGridPolyFromBitmap(
 
   removeDeadEnds(points);
 
-  return [Polygon(points: points)];
+  return [
+    Polygon(points: points),
+    ...squareGridPolyFromBitmap(
+        mapZero, solid, grid, initial + Point(1, 0), visited),
+  ];
 }
 
-Point<int> findFirstSolid2d(List<List<bool>> solid) {
-  for (var y = 0; y < solid.length; y++) {
-    for (var x = 0; x < solid[y].length; x++) {
-      if (solid[y][x]) return Point(x, y);
+Point<int> findFirstSolid2d(
+  List<List<bool>> solid, [
+  Point<int> start,
+  Set<Point<int>> visited,
+]) {
+  bool inside = start != null;
+  int rowStart = start?.x ?? 0;
+  for (var y = start?.y ?? 0; y < solid.length; y++) {
+    for (var x = rowStart; x < solid[y].length; x++) {
+      if (!inside) {
+        if (solid[y][x]) {
+          final point = Point(x, y);
+          if (!visited.contains(point)) {
+            return point;
+          } else {
+            inside = true;
+          }
+        }
+      } else if (!solid[y][x]) {
+        inside = false;
+      }
     }
+    rowStart = 0;
   }
 
   return null;

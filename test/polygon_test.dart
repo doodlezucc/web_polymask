@@ -5,7 +5,6 @@ import 'package:test/test.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
 import 'package:web_polymask/math/polygon.dart';
-import 'package:web_polymask/math/rasterize.dart';
 
 import 'test_helpers.dart';
 
@@ -1009,8 +1008,33 @@ void main() {
       expectRaster(rect, grid, [rect]);
     });
 
-    // final polygon = Polygon(points: parse('0,4 6,9 4,6 6,0'));
-    // final result = rasterize(polygon, grid);
-    // printPolys(result);
+    test('Single Bitmap Field', () {
+      final rect = fromRect(Rectangle(0, 0, 1, 1));
+      expectRaster(rect, grid, [rect]);
+    });
+
+    test('Multiple Results', () {
+      final polygon = Polygon(points: parse('0,4 6,9 4,6 6,0'));
+      expectRaster(polygon, grid, [
+        fromRect(Rectangle(5, 0, 1, 1)),
+        Polygon(
+            points: parse(
+                '4,2 4,1 5,1 5,4 4,4 4,7 3,7 3,6 2,6 2,5 1,5 1,3 2,3 2,2')),
+        fromRect(Rectangle(4, 7, 1, 1)),
+        fromRect(Rectangle(5, 8, 1, 1)),
+      ]);
+    });
+
+    test('Multiple Results (Variation)', () {
+      final polygon = Polygon(points: parse('0,4 6,9 4,3 6,0'));
+      expectRaster(polygon, grid, [
+        fromRect(Rectangle(5, 0, 1, 1)),
+        fromRect(Rectangle(4, 1, 1, 1)),
+        Polygon(
+            points: parse(
+                '2,3 2,2 4,2 4,5 5,5 5,8 4,8 4,7 3,7 3,6 2,6 2,5 1,5 1,3')),
+        fromRect(Rectangle(5, 8, 1, 1)),
+      ]);
+    });
   });
 }
