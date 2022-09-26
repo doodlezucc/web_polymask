@@ -21,10 +21,10 @@ class Polygon {
 
   static Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
     return Polygon(positive: positive, points: [
-      rect.bottomLeft,
-      rect.bottomRight,
-      rect.topRight,
       rect.topLeft,
+      rect.topRight,
+      rect.bottomRight,
+      rect.bottomLeft,
     ]);
   }
 
