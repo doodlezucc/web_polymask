@@ -1,9 +1,11 @@
 import 'dart:math';
 
+import 'package:grid/grid.dart';
 import 'package:test/test.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
 import 'package:web_polymask/math/polygon.dart';
+import 'package:web_polymask/math/rasterize.dart';
 
 import 'test_helpers.dart';
 
@@ -997,5 +999,18 @@ void main() {
         }),
       );
     });
+  });
+
+  group('Rasterization', () {
+    final grid = Grid.square(1);
+
+    test('Rectangle', () {
+      final rect = fromRect(Rectangle(2, 1, 3, 4));
+      expectRaster(rect, grid, [rect]);
+    });
+
+    // final polygon = Polygon(points: parse('0,4 6,9 4,6 6,0'));
+    // final result = rasterize(polygon, grid);
+    // printPolys(result);
   });
 }

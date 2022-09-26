@@ -2,18 +2,20 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:svg' as svg;
 
-import 'package:web_polymask/brushes/toolbox.dart';
-import 'package:web_polymask/math/polygon_state.dart';
+import 'package:grid/grid.dart';
 
 import 'binary.dart';
 import 'brushes/tool.dart';
+import 'brushes/toolbox.dart';
 import 'interactive/svg_polygon.dart';
 import 'math/point_convert.dart';
 import 'math/polygon.dart';
+import 'math/polygon_state.dart';
 import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
+  Grid grid = Grid.unclamped();
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};

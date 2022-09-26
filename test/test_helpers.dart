@@ -1,19 +1,15 @@
 import 'dart:math';
 
+import 'package:grid/grid.dart';
 import 'package:test/test.dart';
 import 'package:web_polymask/math/polygon.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
+import 'package:web_polymask/math/rasterize.dart';
 import 'ring_search.dart';
 
-Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
-  return Polygon(positive: positive, points: [
-    rect.bottomLeft,
-    rect.bottomRight,
-    rect.topRight,
-    rect.topLeft,
-  ]);
-}
+Polygon fromRect(Rectangle<int> rect, {bool positive = true}) =>
+    Polygon.fromRect(rect, positive: positive);
 
 /// Prints a list of polygons as SVG polygon data (debugging).
 void printPolys(Iterable<Polygon> result) {
@@ -51,6 +47,15 @@ void expectUnion(
 
   expect(union(a, b), matcher);
   if (bidirectional) expect(union(b, a), matcher);
+}
+
+void expectRaster(
+  Polygon polygon,
+  TiledGrid grid,
+  Iterable<Polygon> expected,
+) {
+  final matcher = PolygonOperationMatcher(expected, matchOperation: false);
+  expect(rasterize(polygon, grid), matcher);
 }
 
 void expectMergeHierarchy(
@@ -266,17 +271,27 @@ class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
   final Iterable<Polygon> expected;
   final Map errorMap = {};
 
-  PolygonOperationMatcher(this.expected, {bool checkOrder = true}) {
-    _matcher = isA<OperationResult>().having(
-      (result) => result.output,
-      'Polygons',
-      unorderedMatches(expected.map((p) => polygonMatch(
-            p.points,
-            positive: p.positive,
-            map: errorMap,
-            checkOrder: checkOrder,
-          ))),
-    );
+  PolygonOperationMatcher(
+    this.expected, {
+    bool checkOrder = true,
+    bool matchOperation = true,
+  }) {
+    final iterMatcher = unorderedMatches(expected.map((p) => polygonMatch(
+          p.points,
+          positive: p.positive,
+          map: errorMap,
+          checkOrder: checkOrder,
+        )));
+
+    if (matchOperation) {
+      _matcher = isA<OperationResult>().having(
+        (result) => result.output,
+        'Polygons',
+        iterMatcher,
+      );
+    } else {
+      _matcher = iterMatcher;
+    }
   }
 
   @override
@@ -287,9 +302,10 @@ class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
       description.addDescriptionOf(expected);
 
   @override
-  Description describeMismatch(covariant OperationResult result,
-      Description desc, Map matchState, bool verbose) {
-    final mismatch = result.output;
+  Description describeMismatch(
+      item, Description desc, Map matchState, bool verbose) {
+    final Iterable<Polygon> mismatch =
+        (item is OperationResult) ? item.output : item;
     if (errorMap.isEmpty) {
       for (var i = 0; i < mismatch.length; i++) {
         if (!mismatch.elementAt(i).isSimple()) {

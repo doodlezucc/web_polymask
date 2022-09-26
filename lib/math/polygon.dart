@@ -19,6 +19,15 @@ class Polygon {
   Polygon({List<Point<int>> points, this.positive = true})
       : points = points ?? [];
 
+  static Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
+    return Polygon(positive: positive, points: [
+      rect.bottomLeft,
+      rect.bottomRight,
+      rect.topRight,
+      rect.topLeft,
+    ]);
+  }
+
   void addPoint(Point<int> point) {
     points.add(point);
     invalidateBoundingBox();
