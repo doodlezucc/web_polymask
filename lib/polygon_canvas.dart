@@ -43,7 +43,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       }
       _drawOutline([]);
     } else {
-      _applyPrevPole();
+      _drawActiveBrushCursor();
     }
   }
 
@@ -160,13 +160,9 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     if (positive != _previewPositive) {
       _previewPositive = positive;
       if (activePath == null) {
-        _applyPrevPole();
+        _drawActiveBrushCursor();
       }
     }
-  }
-
-  void _applyPrevPole() {
-    _polyprev.classes.toggle('positive-pole', _previewPositive);
   }
 
   void instantiateActivePolygon({bool includeCursorPoint = true}) {
@@ -195,19 +191,21 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     activePath.handleEnd(_currentP);
     _drawActiveBrushCursor();
     activePath = null;
-    _applyPrevPole();
   }
 
   void _drawActiveBrushCursor() {
-    _drawOutline(activePath.tool.drawCursor(_currentP));
+    if (_currentP == null) return;
+    _drawOutline((activePath?.tool ?? activeTool).drawCursor(_currentP));
   }
 
   void _initKeyListener() {
     window.onKeyDown.listen((ev) {
-      if (activePath == null && ev.keyCode == 16) {
-        _setPrevPole(false);
-      } else if (captureInput && !_isInput(ev.target)) {
+      if (captureInput && !_isInput(ev.target)) {
         switch (ev.keyCode) {
+          case 16: // Shift
+            _setPrevPole(false);
+            return;
+
           case 24: // Delete
           case 8: // Backspace
           case 27: // Escape
@@ -226,7 +224,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       }
     });
     window.onKeyUp.listen((ev) {
-      if (activePath == null && ev.keyCode == 16) _setPrevPole(true);
+      if (captureInput && ev.keyCode == 16) _setPrevPole(true);
     });
   }
 
