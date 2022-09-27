@@ -236,17 +236,12 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     }
 
     final pole = _previewPositive;
-    final z = maxZ;
+    int z = maxZ;
+    if (pole) z++;
 
-    if (grid is TiledGrid) {
-      final islands = rasterize(Polygon(points: outline, positive: pole), grid);
-      // print(islands);
-      return _activePreview =
-          islands.map((i) => SvgPolygon(_getPoleParent(pole, z), i)).toList();
-    }
-    return _activePreview = [
-      SvgPolygon(_getPoleParent(pole, z), Polygon(points: outline))
-    ];
+    final islands = rasterize(Polygon(points: outline, positive: pole), grid);
+    return _activePreview =
+        islands.map((i) => SvgPolygon(_getPoleParent(pole, z), i)).toList();
   }
 
   void _drawOutline(Iterable<Point<int>> points, [Point<int> extra]) {
@@ -391,7 +386,10 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     // print('Add ${polygon}');
 
     try {
-      _addPolygon(polygon);
+      final rasterized = rasterize(polygon, grid);
+      for (var poly in rasterized) {
+        _addPolygon(poly);
+      }
     } catch (e) {
       _fromPolygons(polyState);
       rethrow;
@@ -437,6 +435,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   SvgPolygon _makeSvgPoly(Polygon src) {
     final z = _findZ(src);
+    if (z > maxZ) maxZ = z;
+
     final poly = SvgPolygon(_getPoleParent(src.positive, z), src);
     _svg[src] = poly;
     return poly;

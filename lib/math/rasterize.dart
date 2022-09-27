@@ -5,7 +5,10 @@ import 'package:grid/grid.dart';
 import 'polygon.dart';
 import 'polymath.dart';
 
-List<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
+List<Polygon> rasterize(Polygon polygon, Grid g) {
+  if (g is! TiledGrid) return [polygon];
+  TiledGrid grid = g;
+
   final bitmap = <List<bool>>[];
   final points = polygon.points;
   final nvert = points.length;
@@ -100,11 +103,9 @@ List<Polygon> squareGridPolyFromBitmap(
   } else {
     return [
       Polygon.fromRect(
-          Rectangle.fromPoints(
-            scale(p),
-            scale(p + Point(1, 1)),
-          ),
-          positive: positive),
+        Rectangle.fromPoints(scale(p), scale(p + Point(1, 1))),
+        positive: positive,
+      ),
       ...squareGridPolyFromBitmap(
           mapZero, solid, grid, positive, p + Point(2, 0), visited),
     ];
@@ -152,7 +153,7 @@ List<Polygon> squareGridPolyFromBitmap(
   removeDeadEnds(points);
 
   return [
-    Polygon(points: points),
+    Polygon(points: points, positive: positive),
     ...squareGridPolyFromBitmap(
         mapZero, solid, grid, positive, initial + Point(1, 0), visited),
   ];
