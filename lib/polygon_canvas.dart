@@ -3,6 +3,7 @@ import 'dart:html';
 import 'dart:svg' as svg;
 
 import 'package:grid/grid.dart';
+import 'package:web_polymask/math/rasterize.dart';
 
 import 'binary.dart';
 import 'brushes/tool.dart';
@@ -15,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.unclamped();
+  Grid grid = Grid.square(1, size: Point(20, 20));
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -40,7 +41,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       if (activePath != null) {
         _cancelActivePath();
       }
-      _drawPreview([]);
+      _drawOutline([]);
     } else {
       _applyPrevPole();
     }
@@ -54,6 +55,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   Point<int> _currentP;
   int cropMargin;
   bool _previewPositive = true;
+  List<SvgPolygon> _activePreview = [];
+  int maxZ = 0;
 
   bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
@@ -196,7 +199,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _drawActiveBrushCursor() {
-    _drawPreview(activePath.tool.drawCursor(_currentP));
+    _drawOutline(activePath.tool.drawCursor(_currentP));
   }
 
   void _initKeyListener() {
@@ -227,20 +230,41 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     });
   }
 
-  void _drawPreview(Iterable<Point<int>> points, [Point<int> extra]) {
+  List<SvgPolygon> _updateRasteredPreview(Iterable<Point<int>> outline) {
+    for (var active in _activePreview) {
+      active.dispose();
+    }
+
+    final pole = _previewPositive;
+    final z = maxZ;
+
+    if (grid is TiledGrid) {
+      final islands = rasterize(Polygon(points: outline, positive: pole), grid);
+      // print(islands);
+      return _activePreview =
+          islands.map((i) => SvgPolygon(_getPoleParent(pole, z), i)).toList();
+    }
+    return _activePreview = [
+      SvgPolygon(_getPoleParent(pole, z), Polygon(points: outline))
+    ];
+  }
+
+  void _drawOutline(Iterable<Point<int>> points, [Point<int> extra]) {
+    final pointsPlus = [...points, if (extra != null) extra];
     _polyprev.setAttribute(
       'points',
-      pointsToSvg([...points, if (extra != null) extra]),
+      pointsToSvg(pointsPlus),
     );
     _polyprev.classes.toggle(
       'poly-invalid',
       activePath != null && !activePath.isValid(extra),
     );
+    _updateRasteredPreview(pointsPlus);
   }
 
   void updatePreview() {
     if (activePath == null) {
-      _drawPreview(activeTool.drawCursor(_currentP));
+      _drawOutline(activeTool.drawCursor(_currentP));
     }
   }
 
@@ -294,7 +318,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
           final maker = PolyMaker(
             (points) => activePolygon = Polygon(points: points, positive: pole),
             () => addPolygon(activePolygon),
-            (points) => _drawPreview(
+            (points) => _drawOutline(
               points,
               activePath.maker.isClicked ? _currentP : null,
             ),
@@ -341,7 +365,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
           if (moveStreamCtrl != null) {
             moveStreamCtrl.add(_currentP);
           } else {
-            _drawPreview(
+            _drawOutline(
                 (activePath?.tool ?? activeTool).drawCursor(_currentP));
           }
         }

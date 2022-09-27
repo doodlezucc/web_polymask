@@ -5,7 +5,7 @@ import 'package:grid/grid.dart';
 import 'polygon.dart';
 import 'polymath.dart';
 
-Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
+List<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
   final bitmap = <List<bool>>[];
   final points = polygon.points;
   final nvert = points.length;
@@ -15,10 +15,15 @@ Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
     grid.worldToGridSpace(bbox.topLeft),
     grid.worldToGridSpace(bbox.bottomRight),
   );
+  final gridBounds = Rectangle.fromPoints(
+    gridBbox.topLeft.cast<int>(),
+    gridBbox.bottomRight.cast<int>() + Point(1, 1),
+  );
+  final worldBoundsTL = grid.gridToWorldSpace(gridBounds.topLeft).round();
 
-  for (var row = 0; row < gridBbox.height; row++) {
-    bitmap.add(List.filled(gridBbox.width.ceil(), false, growable: false));
-    final y = bbox.top + (row + 0.5) * grid.tileHeight;
+  for (var row = 0; row < gridBounds.height; row++) {
+    bitmap.add(List.filled(gridBounds.width, false, growable: false));
+    final y = worldBoundsTL.y + (row + 0.5) * grid.tileHeight;
     final intersections = <double>[];
     bool above = points.last.y > y;
 
@@ -27,14 +32,15 @@ Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
       if (above != iAbove) {
         final vector = points[i] - points[j];
         final x = (vector.x * (y - points[j].y) / vector.y) + points[j].x;
-        intersections.add(x - bbox.left);
+        final scaled = (x - bbox.left) / grid.tileWidth;
+        intersections.add(scaled + gridBbox.left - gridBounds.left);
         above = iAbove;
       }
     }
 
     intersections.sort();
     bool solid = false;
-    int x = (gridBbox.left % grid.tileWidth).floor();
+    int x = 0;
     for (var isect in intersections) {
       while (x + 0.5 < isect) {
         if (solid && x < bitmap[row].length) bitmap[row][x] = true;
@@ -44,18 +50,24 @@ Iterable<Polygon> rasterize(Polygon polygon, TiledGrid grid) {
     }
   }
 
-  return squareGridPolyFromBitmap(gridBbox.topLeft.cast(), bitmap, grid);
+  // print(bitmapToText(bitmap));
+  return squareGridPolyFromBitmap(
+      gridBounds.topLeft, bitmap, grid, polygon.positive);
 }
+
+String bitmapToText(List<List<bool>> bitmap) =>
+    bitmap.map((row) => row.map((e) => e ? '1' : '0').join('')).join('\n');
 
 const orientationRight = 0;
 const orientationBottom = 1;
 const orientationLeft = 2;
 const orientationTop = 3;
 
-Iterable<Polygon> squareGridPolyFromBitmap(
+List<Polygon> squareGridPolyFromBitmap(
   Point<int> mapZero,
   List<List<bool>> solid,
-  TiledGrid grid, [
+  TiledGrid grid,
+  bool positive, [
   Point<int> offset,
   Set<Point<int>> visited,
 ]) {
@@ -87,12 +99,14 @@ Iterable<Polygon> squareGridPolyFromBitmap(
     orientation = orientationRight;
   } else {
     return [
-      Polygon.fromRect(Rectangle.fromPoints(
-        scale(p),
-        scale(p + Point(1, 1)),
-      )),
+      Polygon.fromRect(
+          Rectangle.fromPoints(
+            scale(p),
+            scale(p + Point(1, 1)),
+          ),
+          positive: positive),
       ...squareGridPolyFromBitmap(
-          mapZero, solid, grid, p + Point(2, 0), visited),
+          mapZero, solid, grid, positive, p + Point(2, 0), visited),
     ];
   }
 
@@ -140,7 +154,7 @@ Iterable<Polygon> squareGridPolyFromBitmap(
   return [
     Polygon(points: points),
     ...squareGridPolyFromBitmap(
-        mapZero, solid, grid, initial + Point(1, 0), visited),
+        mapZero, solid, grid, positive, initial + Point(1, 0), visited),
   ];
 }
 

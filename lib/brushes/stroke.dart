@@ -27,7 +27,7 @@ class StrokeBrush extends PolygonTool {
   double get radiusScaled => exp(radius) * 5;
 
   StrokeBrush() : super(toolId) {
-    shape = shapeSquare;
+    shape = shapeCircle;
   }
 
   @override
