@@ -127,6 +127,10 @@ bool pointInsidePolygonPoints(Point p, List<Point> poly,
 
     bool swch;
     if (allowEdges) {
+      if (a.y == p.y && p.y == b.y) {
+        if ((p.x >= a.x) != (p.x >= b.x)) return true;
+        continue;
+      }
       swch = ((a.y >= p.y) != (b.y >= p.y)) &&
           (p.x <= (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x);
     } else {
@@ -687,7 +691,9 @@ class PolygonMerger {
 
         if (result is OperationResultContain) {
           final merge = result.container;
-          if (identical(merge, polygon)) {
+          if (identical(merge, polygon) ||
+              (identical(merge, layerPoly) &&
+                  polygon.contains(other.polygon))) {
             // polygon contains other: remove children, replace other with poly
             // continue;
             _removeHPoly(other);
