@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:grid/grid.dart';
 import 'package:web_polymask/math/point_convert.dart';
 import 'package:web_polymask/math/polygon.dart';
 import 'package:web_polymask/math/polygon_state.dart';
@@ -160,6 +161,8 @@ OperationResult intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
+// const double _noiseA = 0.1;
+// const double _noiseB = -0.2;
 const double _noiseA = 2.8710980267e-05;
 const double _noiseB = -3.249158553e-05;
 
@@ -172,12 +175,7 @@ const double _noiseB = -3.249158553e-05;
 /// When compared to existing polygon clipping algorithms, the
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
-OperationResult _operation(
-  Polygon a,
-  Polygon b,
-  bool union, {
-  bool initNoiseSwitch = false,
-}) {
+OperationResult _operation(Polygon a, Polygon b, bool union) {
   if (a == null && b == null) return OperationResultAbort(const []);
   if (identical(a, b) || b == null) return OperationResultAbort([a]);
   if (a == null) return OperationResultAbort([b]);
@@ -186,32 +184,23 @@ OperationResult _operation(
     return OperationResultNoOverlap(union ? [a, b] : []);
   }
 
+  // Always handle intersection operation as same pole
+  final samePole = !union || a.positive == b.positive;
+
   forceClockwise(a);
   forceClockwise(b);
 
-  bool noiseSwitch = initNoiseSwitch;
-
-  var aPoints = a.points.map((p) {
-    noiseSwitch = !noiseSwitch;
-    return Point(
-      p.x + (noiseSwitch ? _noiseA : _noiseB),
-      p.y + (noiseSwitch ? _noiseB : _noiseA),
-    );
-  }).toList();
-
-  var p1 = aPoints.last;
-  var inside = pointInsidePolygon(p1, b);
-
-  var firstIsectExits = inside;
-  var overlaps = 0;
-
+  var aPoints = a.points.map((e) => e.cast<double>()).toList(growable: false);
   var intersects = <Intersection>[];
 
   var nvert = aPoints.length;
+  _dilate(a.points, aPoints, nvert - 1, samePole);
   for (var i1 = 0, j1 = nvert - 1; i1 < nvert; j1 = i1++) {
-    var u = aPoints.elementAt(j1);
-    var v = aPoints.elementAt(i1);
+    // dilate next segment
+    if (i1 < nvert - 1) _dilate(a.points, aPoints, i1, samePole);
 
+    var v = aPoints[i1];
+    var u = aPoints[j1];
     var rect = Rectangle.fromPoints(u, v);
 
     // Iterate through segments if (u -> v) is in other polygon's bounding box
@@ -229,12 +218,6 @@ OperationResult _operation(
           if (!nIsects.any((any) => any.intersect == intersection) &&
               !intersects.any((any) => any.intersect == intersection)) {
             nIsects.add(Intersection(j1, j2, intersection));
-
-            inside = !inside;
-
-            if (!inside) {
-              overlaps++;
-            }
           }
         }
       }
@@ -251,8 +234,9 @@ OperationResult _operation(
     }
   }
 
-  // Always handle intersection operation as same pole
-  final samePole = !union || a.positive == b.positive;
+  var p1 = aPoints.last;
+  var firstIsectExits = pointInsidePolygon(p1, b, allowEdges: false);
+  var overlaps = intersects.length ~/ 2;
 
   // The simple cases
   if (overlaps == 0) {
@@ -385,13 +369,6 @@ OperationResult _operation(
       if (polished != null) out.add(polished);
     }
 
-    if (!initNoiseSwitch &&
-        (bigBox.width < a.boundingBox.width ||
-            bigBox.height < a.boundingBox.height)) {
-      // Intersections must have been sorted the wrong way due to noise
-      return _operation(a, b, union, initNoiseSwitch: true);
-    }
-
     out[0] = withoutDoubles(
         Polygon(points: results.first, positive: firstIsPositive));
 
@@ -400,6 +377,41 @@ OperationResult _operation(
     return OperationResultTransform(results
         .map((ps) => withoutDoubles(Polygon(points: ps, positive: a.positive)))
         .where((p) => p != null));
+  }
+}
+
+void _dilate(
+    List<Point<int>> src, List<Point<double>> dst, int start, bool samePole) {
+  if (!samePole) return _perturb(dst, start);
+
+  final end = (start + 1) % src.length;
+  Point<num> u = src[start];
+  Point<num> v = src[end];
+
+  var vector = (v - u).cast<double>();
+  var absX = vector.x.abs();
+  var absY = vector.y.abs();
+  if (absX > absY) {
+    vector = Point(vector.x.sign, vector.y / absX) * _noiseA;
+  } else if (absX != absY || absX > 0) {
+    vector = Point(vector.x / absY, vector.y.sign) * _noiseA;
+  }
+  final left = Point(vector.y, -vector.x);
+
+  if (samePole) {
+    dst[start] += left;
+    dst[end] += left;
+  } else {
+    dst[start] -= left;
+    dst[end] -= left;
+  }
+}
+
+void _perturb(List<Point<double>> dst, int index) {
+  if (index.isEven) {
+    dst[index] += const Point(_noiseA, _noiseB);
+  } else {
+    dst[index] += const Point(_noiseB, _noiseA);
   }
 }
 

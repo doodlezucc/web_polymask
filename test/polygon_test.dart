@@ -574,17 +574,6 @@ void main() {
 
       expectUnion(pA, pB, [pA]);
     });
-
-    test('Edge Overlap', () {
-      final a = parse(
-          '183,95 174,79 260,79 235,122 238,122 195,197 171,154 160,173 117,98 159,98 157,95');
-      final b = parse('157,95 243,95 200,170');
-
-      final pA = Polygon(points: a);
-      final pB = Polygon(points: b);
-
-      expectUnion(pA, pB, [pA]);
-    });
   });
 
   group('Intersection', () {
