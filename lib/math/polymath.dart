@@ -161,10 +161,9 @@ OperationResult intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
-// const double _noiseA = 0.1;
-// const double _noiseB = -0.2;
+// const double _noiseA = 2;
+// const double _noiseB = -3;
 const double _noiseA = 2.8710980267e-05;
-const double _noiseB = -3.249158553e-05;
 
 /// Using a "switch approach": Start at the first intersection, trace B
 /// until meeting another one. Switch to A and trace its points until traversing
@@ -190,34 +189,35 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
   forceClockwise(a);
   forceClockwise(b);
 
-  var aPoints = a.points.map((e) => e.cast<double>()).toList(growable: false);
-  var intersects = <Intersection>[];
+  var bPoints = b.points.map((e) => e.cast<double>()).toList(growable: false);
+  var bSortedIsects = <Intersection>[];
 
-  var nvert = aPoints.length;
-  _dilate(a.points, aPoints, nvert - 1, samePole);
+  var nvert = bPoints.length;
+  _dilate(b.points, bPoints, nvert - 2, samePole);
+  _dilate(b.points, bPoints, nvert - 1, samePole);
   for (var i1 = 0, j1 = nvert - 1; i1 < nvert; j1 = i1++) {
     // dilate next segment
-    if (i1 < nvert - 1) _dilate(a.points, aPoints, i1, samePole);
+    if (i1 < nvert - 2) _dilate(b.points, bPoints, i1, samePole);
 
-    var v = aPoints[i1];
-    var u = aPoints[j1];
+    var v = bPoints[i1];
+    var u = bPoints[j1];
     var rect = Rectangle.fromPoints(u, v);
 
     // Iterate through segments if (u -> v) is in other polygon's bounding box
-    if (b.boundingBox.intersects(rect)) {
+    if (a.boundingBox.intersects(rect)) {
       var nIsects = <Intersection>[];
 
-      var nvert = b.points.length;
+      var nvert = a.points.length;
       for (var i2 = 0, j2 = nvert - 1; i2 < nvert; j2 = i2++) {
-        var e = b.points.elementAt(j2);
-        var f = b.points.elementAt(i2);
+        var e = a.points[j2];
+        var f = a.points[i2];
 
         var intersection = segmentIntersect(u, v, e, f);
         if (intersection != null) {
           // Check if intersection already exists
           if (!nIsects.any((any) => any.intersect == intersection) &&
-              !intersects.any((any) => any.intersect == intersection)) {
-            nIsects.add(Intersection(j1, j2, intersection));
+              !bSortedIsects.any((any) => any.intersect == intersection)) {
+            nIsects.add(Intersection(j2, j1, intersection));
           }
         }
       }
@@ -229,49 +229,50 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
         nIsects.sort((isect1, isect2) => isect1.intersect
             .squaredDistanceTo(uAsDouble)
             .compareTo(isect2.intersect.squaredDistanceTo(uAsDouble)));
-        intersects.addAll(nIsects);
+        bSortedIsects.addAll(nIsects);
       }
     }
   }
 
-  var p1 = aPoints.last;
-  var firstIsectExits = pointInsidePolygon(p1, b, allowEdges: false);
-  var overlaps = intersects.length ~/ 2;
+  var p1 = bPoints.last;
+  var firstIsectExitsA = pointInsidePolygon(p1, a, allowEdges: false);
+  var nisect = bSortedIsects.length;
+  var overlaps = nisect ~/ 2;
 
   // The simple cases
   if (overlaps == 0) {
-    if (firstIsectExits) {
-      // B contains A
-      final container = union ? b : a;
-      return OperationResultContain([container], container);
-    }
-
-    if (pointInsidePolygonPoints(b.points.first, aPoints)) {
+    if (firstIsectExitsA) {
       // A contains B
       if (!union) return OperationResultContain([b], b);
 
       return OperationResultContain(samePole ? [a] : [b, a], a);
     }
 
+    if (pointInsidePolygonPoints(a.points.first, bPoints)) {
+      // B contains A
+      final container = union ? b : a;
+      return OperationResultContain([container], container);
+    }
+
     return OperationResultNoOverlap(union ? [a, b] : []);
   }
 
-  var bSortedIsects = List<Intersection>.from(intersects)
+  var aSortedIsects = List<Intersection>.from(bSortedIsects)
     ..sort((ia, ib) {
-      if (ia.bSegment == ib.bSegment) {
-        var segStart = forceDoublePoint(b.points[ia.bSegment]);
+      if (ia.aSegment == ib.aSegment) {
+        var segStart = forceDoublePoint(a.points[ia.aSegment]);
 
         return ia.intersect
             .squaredDistanceTo(segStart)
             .compareTo(ib.intersect.squaredDistanceTo(segStart));
       }
-      return ia.bSegment.compareTo(ib.bSegment);
+      return ia.aSegment.compareTo(ib.aSegment);
     });
 
   var outgoings = <Intersection>[];
-  var start = (firstIsectExits ^ !union) ? 1 : 0; // Fancy XOR operator
-  for (var i = start; i < intersects.length; i += 2) {
-    outgoings.add(intersects[i]);
+  var start = (firstIsectExitsA ^ !union) ? 0 : 1; // Fancy XOR operator
+  for (var i = start; i < nisect; i += 2) {
+    outgoings.add(bSortedIsects[i]);
   }
 
   var results = <List<Point<int>>>[];
@@ -283,15 +284,13 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
 
     var aEnd = initial;
 
-    var aSrc = intersects.indexOf(aEnd);
+    var aSrc = aSortedIsects.indexOf(aEnd);
 
     while (true) {
       // Trace B
       var bIndex = bSortedIsects.indexOf(aEnd);
       var bStart = aEnd;
-      var bEnd = bSortedIsects[
-          (bIndex + (samePole ? 1 : intersects.length - 1)) %
-              intersects.length];
+      var bEnd = bSortedIsects[(bIndex + (samePole ? 1 : nisect - 1)) % nisect];
 
       points.add(forceIntPoint(bStart.intersect));
 
@@ -299,8 +298,7 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
           ? bEnd.bSegment - bStart.bSegment
           : bStart.bSegment - bEnd.bSegment;
 
-      if (steps == 0 &&
-          (samePole ? (bIndex + 1) == intersects.length : bIndex == 0)) {
+      if (steps == 0 && (samePole ? (bIndex + 1) == nisect : bIndex == 0)) {
         steps = b.points.length;
       } else if (steps < 0) steps += b.points.length;
 
@@ -312,16 +310,16 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
       visited.add(bEnd);
 
       // Trace A
-      var aIndex = intersects.indexOf(bEnd);
+      var aIndex = aSortedIsects.indexOf(bEnd);
       var aStart = bEnd;
-      aEnd = intersects[(aIndex + 1) % intersects.length];
+      aEnd = aSortedIsects[(aIndex + 1) % nisect];
 
       points.add(forceIntPoint(aStart.intersect));
 
       steps = aEnd.aSegment - aStart.aSegment;
       if (steps == 0) {
         var diff = aIndex - aSrc;
-        if (union && (diff == intersects.length - 1)) {
+        if (union && (diff == nisect - 1)) {
           steps = a.points.length;
         }
       } else if (steps < 0) steps += a.points.length;
@@ -339,8 +337,9 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
       }
     }
 
-    intersects.removeWhere((i) => visited.contains(i));
+    aSortedIsects.removeWhere((i) => visited.contains(i));
     bSortedIsects.removeWhere((i) => visited.contains(i));
+    nisect = bSortedIsects.length;
     outgoings.removeWhere((i) => visited.contains(i));
   }
 
@@ -382,7 +381,7 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
 
 void _dilate(
     List<Point<int>> src, List<Point<double>> dst, int start, bool samePole) {
-  if (!samePole) return _perturb(dst, start);
+  // if (!samePole) return _perturb(dst, start);
 
   final end = (start + 1) % src.length;
   Point<num> u = src[start];
@@ -398,21 +397,8 @@ void _dilate(
   }
   final left = Point(vector.y, -vector.x);
 
-  if (samePole) {
-    dst[start] += left;
-    dst[end] += left;
-  } else {
-    dst[start] -= left;
-    dst[end] -= left;
-  }
-}
-
-void _perturb(List<Point<double>> dst, int index) {
-  if (index.isEven) {
-    dst[index] += const Point(_noiseA, _noiseB);
-  } else {
-    dst[index] += const Point(_noiseB, _noiseA);
-  }
+  dst[start] += left;
+  dst[end] += left;
 }
 
 abstract class OperationResult {
