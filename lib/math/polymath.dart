@@ -393,15 +393,13 @@ void _dilate(
   Point<num> v = src[end];
 
   var vector = (v - u).cast<double>();
-  var absX = vector.x.abs();
-  var absY = vector.y.abs();
-  if (absX > absY) {
-    vector = Point(vector.x.sign, vector.y / absX) * _noiseA;
-  } else if (absX != absY || absX > 0) {
-    vector = Point(vector.x / absY, vector.y.sign) * _noiseA;
-  }
-  final left = Point(vector.y, -vector.x);
+  var ax = vector.x.abs();
+  var ay = vector.y.abs();
+  var ratio = 1 / max(ax, ay);
+  ratio *= 1.29289 - (ax + ay) * ratio * 0.29289;
+  vector = vector * (ratio * _noiseA);
 
+  final left = Point(vector.y, -vector.x);
   dst[start] += left;
   dst[end] += left;
 }
