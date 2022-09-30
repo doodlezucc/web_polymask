@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.square(1, size: Point(20, 20));
+  Grid grid = Grid.square(1, size: Point(80, 80), zero: Point(0, 0));
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -83,17 +83,17 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _onAdd(Polygon p, Polygon parent) {
-    // print('add $p to $parent');
+    print('add $p to $parent');
     _makeSvgPoly(p);
   }
 
   void _onRemove(Polygon p) {
-    // print('remove $p');
+    print('remove $p');
     _svg.remove(p).dispose();
   }
 
   void _onUpdateParent(Polygon p, Polygon parent) {
-    // print('reappend $p to $parent');
+    print('reappend $p to $parent');
     _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
@@ -380,8 +380,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void addPolygon(Polygon polygon) {
     final polyState = _svg.values.toList();
-    // print('State: ${state}');
-    // print('Add ${polygon}');
+    print('State: ${state}');
 
     try {
       final rasterized = rasterize(polygon, grid);
@@ -396,6 +395,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void _addPolygon(Polygon polygon) {
     if (polygon.points.length >= 3) {
+      print('Add ${polygon}');
       if (polygon.positive) {
         var cropped = _cropPolygon(polygon);
         for (var poly in cropped) {

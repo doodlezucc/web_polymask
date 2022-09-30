@@ -128,7 +128,7 @@ bool pointInsidePolygonPoints(Point p, List<Point> poly,
     bool swch;
     if (allowEdges) {
       if (a.y == p.y && p.y == b.y) {
-        if ((p.x >= a.x) != (p.x >= b.x)) return true;
+        if ((p.x >= a.x) != (p.x > b.x)) return true;
         continue;
       }
       swch = ((a.y >= p.y) != (b.y >= p.y)) &&
@@ -165,8 +165,6 @@ OperationResult intersection(Polygon a, Polygon b) {
   return _operation(a, b, false);
 }
 
-// const double _noiseA = 2;
-// const double _noiseB = -3;
 const double _noiseA = 2.8710980267e-05;
 
 /// Using a "switch approach": Start at the first intersection, trace B
@@ -200,7 +198,7 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
   _dilate(b.points, bPoints, nvert - 2, samePole);
   _dilate(b.points, bPoints, nvert - 1, samePole);
   for (var i1 = 0, j1 = nvert - 1; i1 < nvert; j1 = i1++) {
-    // dilate next segment
+    // Dilate next segment
     if (i1 < nvert - 2) _dilate(b.points, bPoints, i1, samePole);
 
     var v = bPoints[i1];
@@ -385,8 +383,6 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
 
 void _dilate(
     List<Point<int>> src, List<Point<double>> dst, int start, bool samePole) {
-  // if (!samePole) return _perturb(dst, start);
-
   final end = (start + 1) % src.length;
   Point<num> u = src[start];
   Point<num> v = src[end];
@@ -604,14 +600,20 @@ class PolygonMerger {
     if (onAdd != null) onAdd(p, parent);
   }
 
+  List<Polygon> _findChildren(Polygon p) {
+    return _parents.entries
+        .where((e) => e.value == p)
+        .map((e) => e.key)
+        .toList();
+  }
+
   void _replacePolygon(
     Polygon a,
     Polygon b,
+    List<Polygon> aChildren,
     Iterable<List<Polygon>> parentSame,
   ) {
     final parent = _parents[a];
-    final children =
-        _parents.entries.where((e) => e.value == a).map((e) => e.key).toList();
 
     _add(b, parent);
     for (var polyList in parentSame) {
@@ -620,18 +622,45 @@ class PolygonMerger {
         polyList[index] = b;
       }
     }
-    for (var child in children) {
+    for (var child in aChildren) {
       _setParent(child, b);
     }
     _remove(a);
   }
 
-  void _replace(HPolygon a, Polygon b) {
-    _add(b, _parents[a.polygon]);
-    for (var child in a.children) {
-      _setParent(child.polygon, b);
+  void _replacePolygonWith(
+    Polygon a,
+    List<Polygon> aChildren,
+    Iterable<Polygon> replacement,
+    Map<Polygon, List<Polygon>> parentSame,
+    Map<Polygon, List<Polygon>> nParentSame,
+  ) {
+    if (replacement.length == 1) {
+      _replacePolygon(a, replacement.first, aChildren,
+          parentSame.values.followedBy(nParentSame.values));
+    } else {
+      // other has been fractured into independent parts,
+      // all resulting polygons must be of diff pole
+      final children = aChildren;
+      for (var poly in replacement) {
+        _add(poly, _parents[a]);
+        for (var child in children) {
+          if (poly.intersects(child)) {
+            nParentSame.update(
+              child,
+              (value) => value..add(poly),
+              ifAbsent: () => [poly],
+            );
+          } else if (poly.contains(child)) {
+            // Child is fully contained within a fractured part of this
+            // and therefore doesn't have to be checked
+            // (could be removed from nextLayer)
+            _setParent(child, poly);
+          }
+        }
+      }
+      _remove(a);
     }
-    _remove(a.polygon);
   }
 
   void _makeBridge(
@@ -648,18 +677,8 @@ class PolygonMerger {
     for (var parent in parents) {
       // subtract the original shape from its (diff) parent
       final subtracted = union(parent, other.polygon);
-      var outerShape = subtracted.output.first;
-      for (var i = 1; i < subtracted.output.length; i++) {
-        final sp = subtracted.output.elementAt(i);
-        if (sp.boundingBox.containsRectangle(outerShape.boundingBox)) {
-          outerShape = sp;
-        }
-      }
-      _replacePolygon(
-        parent,
-        outerShape,
-        parentSame.values.followedBy(nParentSame.values),
-      );
+      _replacePolygonWith(parent, _findChildren(parent), subtracted.output,
+          parentSame, nParentSame);
     }
   }
 
@@ -733,12 +752,8 @@ class PolygonMerger {
           if (samePole) {
             if (makeBridge) {
               final parents = parentSame[other.polygon] ?? [parent];
-              for (var poly in result.output) {
-                if (poly.positive != other.polygon.positive) {
-                  _add(poly, _parents[parents[0]]);
-                }
-              }
               _makeBridge(other, parents, parentSame, nParentSame);
+
               parent = null;
             } else {
               // other was expanded
@@ -755,33 +770,13 @@ class PolygonMerger {
           } else {
             // other was subtracted from
             makeBridge = true;
-            if (result.output.length == 1) {
-              _replace(other, result.output.first);
-            } else {
-              // other has been fractured into independent parts,
-              // all resulting polygons must be of diff pole
-              makeBridge = true;
-              final children = other.children.toSet();
-              nextLayer.addAll(children);
-              for (var poly in result.output) {
-                _add(poly, parent);
-                for (var child in children) {
-                  if (poly.intersects(child.polygon)) {
-                    nParentSame.update(
-                      child.polygon,
-                      (value) => value..add(poly),
-                      ifAbsent: () => [poly],
-                    );
-                  } else if (poly.contains(child.polygon)) {
-                    // Child is fully contained within a fractured part of this and
-                    // therefore doesn't have to be checked
-                    _setParent(child.polygon, poly);
-                    nextLayer.remove(child);
-                  }
-                }
-              }
-              _remove(other.polygon);
-            }
+            _replacePolygonWith(
+              other.polygon,
+              other.children.map((e) => e.polygon).toList(),
+              result.output,
+              parentSame,
+              nParentSame,
+            );
           }
         }
       }

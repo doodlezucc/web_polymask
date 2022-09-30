@@ -108,7 +108,7 @@ class Polygon {
           final e = other.points[j2];
           final f = other.points[i2];
 
-          if (segmentIntersect(u, v, e, f) != null) {
+          if (segmentIntersect(u, v, e, f, includeEnds: false) != null) {
             return true;
           }
         }

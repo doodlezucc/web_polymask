@@ -987,6 +987,23 @@ void main() {
         }),
       );
     });
+
+    test('Erase at Corner', () {
+      expectMerge(
+        PolygonState.assignParents(parseState('''
+          - (positive, 80,56 64,56 64,48 56,48 56,40 40,40 40,48 32,48 32,56 24,56 24,48 16,48 16,32 24,32 24,24 32,24 32,16 56,16 56,8 72,8 72,16 80,16)
+            - (negative, 32,32 32,40 24,40 24,32)
+            - (negative, 72,40 56,40 56,16 72,16)
+        ''')),
+        Polygon(points: parse('64,16 72,16 72,24 64,24'), positive: false),
+        PolygonState.assignParents(parseState('''
+          - (positive, 72,40 72,16 80,16 80,56 64,56 64,48 56,48 56,40)
+            - (positive, 56,40 40,40 40,48 32,48 32,56 24,56 24,48 16,48 16,32 24,32 24,24 32,24 32,16 56,16)
+              - (negative, 32,32 32,40 24,40 24,32)
+            - (positive, 56,16 56,8 72,8 72,16)
+        ''')),
+      );
+    });
   });
 
   group('Rasterization', () {
