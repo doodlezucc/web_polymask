@@ -128,9 +128,14 @@ bool pointInsidePolygonPoints(Point p, List<Point> poly,
     bool swch;
     if (allowEdges) {
       if (a.y == p.y && p.y == b.y) {
-        if ((p.x >= a.x) != (p.x > b.x)) return true;
+        if (p.x == a.x || ((p.x > a.x) != (p.x > b.x))) return true;
         continue;
       }
+      if (a.x == p.x && p.x == b.x) {
+        if (p.y == a.y || ((p.y > a.y) != (p.y > b.y))) return true;
+        continue;
+      }
+
       swch = ((a.y >= p.y) != (b.y >= p.y)) &&
           (p.x <= (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x);
     } else {

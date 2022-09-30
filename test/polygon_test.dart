@@ -9,7 +9,7 @@ import 'package:web_polymask/math/polygon.dart';
 import 'test_helpers.dart';
 
 void main() {
-  var polygon = Polygon(points: [
+  final polygon = Polygon(points: [
     Point(3, 5),
     Point(4, 3),
     Point(1, 2),
@@ -17,14 +17,10 @@ void main() {
     Point(7, 8),
   ]);
 
-  var rect = Polygon(points: [
-    Point(2, 4),
-    Point(2, 7),
-    Point(4, 7),
-    Point(4, 4),
-  ]);
+  final rectSrc = Rectangle(2, 4, 2, 3);
+  final rect = fromRect(rectSrc);
 
-  var uShape = Polygon(points: [
+  final uShape = Polygon(points: [
     Point(6, 3),
     Point(9, 3),
     Point(9, 7),
@@ -103,9 +99,23 @@ void main() {
       expect(pointInsidePolygon(Point(3, 4), polygon), false);
     });
 
+    test('Point Inside Rect Polygon', () {
+      for (var x = 0; x <= 5; x++) {
+        for (var y = 0; y <= 8; y++) {
+          final point = Point(x, y);
+          final expected = rectSrc.containsPoint(point);
+          expect(
+            point,
+            isA<Point<int>>().having(
+                (p) => pointInsidePolygon(p, rect), 'Inside Polygon', expected),
+          );
+        }
+      }
+    });
+
     test('Signed Area', () {
       expect(signedArea(polygon), -17.5);
-      expect(signedArea(rect), 6);
+      expect(signedArea(rect), -6);
     });
   });
 
