@@ -533,13 +533,11 @@ void removeDeadEnds(List<Point<int>> points) {
   var len = points.length;
 
   int _area(List<Point<int>> points, int off) {
-    var signedArea = 0;
-    for (var i = 0, j = 2; i < 3; j = i++) {
-      var a = points[(i + off) % len];
-      var b = points[(j + off) % len];
-      signedArea += a.x * b.y - b.x * a.y;
-    }
-    return signedArea;
+    var a = points[off % len];
+    var b = points[(off + 1) % len];
+    var c = points[(off + 2) % len];
+
+    return a.x * (c.y - b.y) + b.x * (a.y - c.y) + c.x * (b.y - a.y);
   }
 
   var i = 0;

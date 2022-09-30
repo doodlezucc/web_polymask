@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.square(1, size: Point(80, 80), zero: Point(0, 0));
+  Grid grid = Grid.unclamped();
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -56,7 +56,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   int cropMargin;
   bool _previewPositive = true;
   List<SvgPolygon> _activePreview = [];
-  int maxZ = 0;
+  int _maxZ = 0;
 
   bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
@@ -83,17 +83,17 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _onAdd(Polygon p, Polygon parent) {
-    print('add $p to $parent');
+    // print('add $p to $parent');
     _makeSvgPoly(p);
   }
 
   void _onRemove(Polygon p) {
-    print('remove $p');
+    // print('remove $p');
     _svg.remove(p).dispose();
   }
 
   void _onUpdateParent(Polygon p, Polygon parent) {
-    print('reappend $p to $parent');
+    // print('reappend $p to $parent');
     _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
@@ -234,7 +234,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     }
 
     final pole = _previewPositive;
-    int z = maxZ;
+    int z = _maxZ;
     if (pole) z++;
 
     final islands = rasterize(Polygon(points: outline, positive: pole), grid);
@@ -380,7 +380,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void addPolygon(Polygon polygon) {
     final polyState = _svg.values.toList();
-    print('State: ${state}');
+    // print('State: ${state}');
 
     try {
       final rasterized = rasterize(polygon, grid);
@@ -395,10 +395,10 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void _addPolygon(Polygon polygon) {
     if (polygon.points.length >= 3) {
-      print('Add ${polygon}');
       if (polygon.positive) {
         var cropped = _cropPolygon(polygon);
         for (var poly in cropped) {
+          // print('Add ${poly}');
           _mergePolygon(poly);
         }
       } else {
@@ -433,7 +433,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   SvgPolygon _makeSvgPoly(Polygon src) {
     final z = _findZ(src);
-    if (z > maxZ) maxZ = z;
+    if (z > _maxZ) _maxZ = z;
 
     final poly = SvgPolygon(_getPoleParent(src.positive, z), src);
     _svg[src] = poly;

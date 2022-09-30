@@ -26,6 +26,10 @@ class StrokeBrush extends PolygonTool {
   double radius = 2;
   double get radiusScaled => exp(radius) * 5;
 
+  Point<int> _bufferP;
+  double _bufferRadius = -1;
+  List<Point<int>> _bufferOutline;
+
   StrokeBrush() : super(toolId) {
     shape = shapeCircle;
   }
@@ -34,8 +38,14 @@ class StrokeBrush extends PolygonTool {
   ToolPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
 
   @override
-  List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) =>
-      override ?? makeAngleShape(_shape, p, radiusScaled).points;
+  List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) {
+    if (p == _bufferP && radius == _bufferRadius) return _bufferOutline;
+
+    _bufferP = p;
+    _bufferRadius = radius;
+    return _bufferOutline =
+        override ?? makeAngleShape(_shape, p, radiusScaled).points;
+  }
 
   @override
   bool handleMouseWheel(int amount) {
