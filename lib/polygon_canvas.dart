@@ -57,6 +57,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   ToolPath activePath;
   Point<int> _currentP;
   int cropMargin;
+  bool _didChange = false;
   bool _previewPositive = true;
   List<SvgPolygon> _activePreview = [];
 
@@ -87,17 +88,17 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _onAdd(Polygon p, Polygon parent) {
-    // print('add $p to $parent');
+    _didChange = true;
     _makeSvgPoly(p);
   }
 
   void _onRemove(Polygon p) {
-    // print('remove $p');
+    _didChange = true;
     _svg.remove(p).dispose();
   }
 
   void _onUpdateParent(Polygon p, Polygon parent) {
-    // print('reappend $p to $parent');
+    _didChange = true;
     _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
@@ -195,6 +196,11 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     activePath.handleEnd(_currentP);
     _drawActiveBrushCursor();
     activePath = null;
+
+    if (_didChange) {
+      _didChange = false;
+      _triggerOnChange();
+    }
   }
 
   void _drawActiveBrushCursor() {
@@ -376,7 +382,6 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void addPolygon(Polygon polygon) {
     final polyState = _svg.values.toList();
-    // print('State: ${state}');
 
     try {
       final rasterized = rasterize(polygon, grid);
@@ -394,7 +399,6 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       if (polygon.positive) {
         var cropped = _cropPolygon(polygon);
         for (var poly in cropped) {
-          // print('Add ${poly}');
           _mergePolygon(poly);
         }
       } else {

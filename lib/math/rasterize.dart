@@ -53,7 +53,6 @@ List<Polygon> rasterize(Polygon polygon, Grid g) {
     }
   }
 
-  // print(bitmapToText(bitmap));
   return squareGridPolyFromBitmap(
       gridBounds.topLeft, bitmap, grid, polygon.positive);
 }
