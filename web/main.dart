@@ -31,7 +31,6 @@ void main() {
       } else {
         canvas.activeTool = canvas.toolBrushLasso;
       }
-      canvas.updatePreview();
     }
   });
 

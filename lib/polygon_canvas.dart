@@ -32,6 +32,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     if (activePath != null) return;
     super.activeTool = tool;
 
+    if (captureInput) _drawActiveBrushCursor();
     if (onSettingsChange != null) onSettingsChange();
   }
 
@@ -256,18 +257,12 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     _updateRasteredPreview(pointsPlus);
   }
 
-  void updatePreview() {
-    if (activePath == null) {
-      _drawOutline(activeTool.drawCursor(_currentP));
-    }
-  }
-
   void _initCursorControls() {
     window.onMouseWheel.listen((ev) {
-      if (activePath != null) return;
+      if (!captureInput || activePath != null) return;
 
       if (activeTool.handleMouseWheel(ev.deltaY.sign)) {
-        updatePreview();
+        _drawActiveBrushCursor();
         if (onSettingsChange != null) onSettingsChange();
       }
     });
