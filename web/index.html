@@ -39,11 +39,14 @@
             dur="3s" repeatCount="indefinite" additive="sum" />
         </pattern>
 
+        <g id="polyprevpos" class="polypattern"></g>
+        <g id="polyprevneg"></g>
         <g id="polyneg" polycopy="n"></g>
 
         <mask id="polynegmask" fill="black" polycopy="n" polydeep>
           <rect fill="white"></rect>
           <use href="#polyneg" polyattr="href"></use>
+          <use href="#polyprevneg"></use>
         </mask>
       </defs>
 
@@ -51,6 +54,8 @@
 
       <g id="polynegdisplay">
         <use href="#polyneg" polycopy="n" polyattr="href"></use>
+        <use href="#polyprevpos"></use>
+        <use href="#polyprevneg"></use>
       </g>
 
       <polygon id="polyprev"></polygon>

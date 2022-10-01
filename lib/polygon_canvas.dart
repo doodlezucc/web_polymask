@@ -21,7 +21,9 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
   final svg.SvgSvgElement root;
-  final svg.SvgElement _polyprev;
+  final svg.SvgElement _polyCursor;
+  final svg.SvgElement _polyPrevPos;
+  final svg.SvgElement _polyPrevNeg;
   final _layersPos = <List<svg.SvgElement>>[];
   final _layersNeg = <List<svg.SvgElement>>[];
 
@@ -56,7 +58,6 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   int cropMargin;
   bool _previewPositive = true;
   List<SvgPolygon> _activePreview = [];
-  int _maxZ = 0;
 
   bool get isEmpty => state.parents.isEmpty;
   bool get isNotEmpty => !isEmpty;
@@ -69,7 +70,9 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     this.acceptStartEvent,
     this.modifyPoint,
     this.cropMargin = 2,
-  }) : _polyprev = root.querySelector('#polyprev') {
+  })  : _polyCursor = root.querySelector('#polyprev'),
+        _polyPrevPos = root.querySelector('#polyprevpos'),
+        _polyPrevNeg = root.querySelector('#polyprevneg') {
     _merger = PolygonMerger(
       onAdd: _onAdd,
       onRemove: _onRemove,
@@ -234,21 +237,19 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     }
 
     final pole = _previewPositive;
-    int z = _maxZ;
-    if (pole) z++;
-
+    final parent = pole ? _polyPrevPos : _polyPrevNeg;
     final islands = rasterize(Polygon(points: outline, positive: pole), grid);
-    return _activePreview =
-        islands.map((i) => SvgPolygon(_getPoleParent(pole, z), i)).toList();
+
+    return _activePreview = islands.map((i) => SvgPolygon(parent, i)).toList();
   }
 
   void _drawOutline(Iterable<Point<int>> points, [Point<int> extra]) {
     final pointsPlus = [...points, if (extra != null) extra];
-    _polyprev.setAttribute(
+    _polyCursor.setAttribute(
       'points',
       pointsToSvg(pointsPlus),
     );
-    _polyprev.classes.toggle(
+    _polyCursor.classes.toggle(
       'poly-invalid',
       activePath != null && !activePath.isValid(extra),
     );
@@ -433,8 +434,6 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   SvgPolygon _makeSvgPoly(Polygon src) {
     final z = _findZ(src);
-    if (z > _maxZ) _maxZ = z;
-
     final poly = SvgPolygon(_getPoleParent(src.positive, z), src);
     _svg[src] = poly;
     return poly;

@@ -34,7 +34,7 @@ svg, svg rect {
   height: 100%;
 }
 
-.polypattern, #polynegdisplay {
+.polypattern, #polynegdisplay, #polyprevneg {
   stroke: #fb8;
   stroke-width: 4px;
 }
@@ -57,4 +57,18 @@ svg, svg rect {
 }
 #polyprev.poly-invalid {
   stroke: #f66;
+}
+
+/* #polyprevpos, #polyprevneg {
+  stroke: #fff;
+} */
+
+#polyprevpos {
+  stroke: #fff0;
+  opacity: 0.8;
+}
+
+#polyprevneg {
+  stroke: #fff0;
+  opacity: 0.6;
 }
