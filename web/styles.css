@@ -59,16 +59,14 @@ svg, svg rect {
   stroke: #f66;
 }
 
-/* #polyprevpos, #polyprevneg {
+#polyprevpos, #polyprevneg {
   stroke: #fff;
-} */
+}
 
 #polyprevpos {
-  stroke: #fff0;
   opacity: 0.8;
 }
 
 #polyprevneg {
-  stroke: #fff0;
   opacity: 0.6;
 }

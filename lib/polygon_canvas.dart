@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.unclamped();
+  Grid grid = Grid.square(1, size: Point(80, 80));
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -248,7 +248,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
     pole ??= _previewPositive;
     final parent = pole ? _polyPrevPos : _polyPrevNeg;
-    final islands = rasterize(Polygon(points: outline, positive: pole), grid);
+    final islands =
+        rasterize(Polygon(points: outline, positive: pole), grid, cropMargin);
 
     return _activePreview = islands.map((i) => SvgPolygon(parent, i)).toList();
   }
@@ -393,7 +394,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     final polyState = _svg.values.toList();
 
     try {
-      final rasterized = rasterize(polygon, grid);
+      final rasterized = rasterize(polygon, grid, cropMargin);
       for (var poly in rasterized) {
         _addPolygon(poly);
       }

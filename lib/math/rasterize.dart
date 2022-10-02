@@ -5,9 +5,11 @@ import 'package:grid/grid.dart';
 import 'polygon.dart';
 import 'polymath.dart';
 
-List<Polygon> rasterize(Polygon polygon, Grid g) {
+List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   if (g is! TiledGrid) return [polygon];
   TiledGrid grid = g;
+  final srcZero = grid.zero;
+  grid.zero = srcZero.cast<num>() + Point(cropMargin, cropMargin);
 
   final bitmap = <List<bool>>[];
   final points = polygon.points;
@@ -53,8 +55,10 @@ List<Polygon> rasterize(Polygon polygon, Grid g) {
     }
   }
 
-  return squareGridPolyFromBitmap(
-      gridBounds.topLeft, bitmap, grid, polygon.positive);
+  final result = squareGridPolyFromBitmap(
+      cropMargin, gridBounds.topLeft, bitmap, grid, polygon.positive);
+  grid.zero = srcZero;
+  return result;
 }
 
 String bitmapToText(List<List<bool>> bitmap) =>
@@ -66,6 +70,7 @@ const orientationLeft = 2;
 const orientationTop = 3;
 
 List<Polygon> squareGridPolyFromBitmap(
+  int cropMargin,
   Point<int> mapZero,
   List<List<bool>> solid,
   TiledGrid grid,
@@ -106,7 +111,7 @@ List<Polygon> squareGridPolyFromBitmap(
         positive: positive,
       ),
       ...squareGridPolyFromBitmap(
-          mapZero, solid, grid, positive, p + Point(2, 0), visited),
+          cropMargin, mapZero, solid, grid, positive, p + Point(2, 0), visited),
     ];
   }
 
@@ -153,8 +158,8 @@ List<Polygon> squareGridPolyFromBitmap(
 
   return [
     Polygon(points: points, positive: positive),
-    ...squareGridPolyFromBitmap(
-        mapZero, solid, grid, positive, initial + Point(1, 0), visited),
+    ...squareGridPolyFromBitmap(cropMargin, mapZero, solid, grid, positive,
+        initial + Point(1, 0), visited),
   ];
 }
 
