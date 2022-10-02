@@ -244,6 +244,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       active.dispose();
     }
 
+    if (outline.length < 3) return _activePreview = [];
+
     pole ??= _previewPositive;
     final parent = pole ? _polyPrevPos : _polyPrevNeg;
     final islands = rasterize(Polygon(points: outline, positive: pole), grid);
