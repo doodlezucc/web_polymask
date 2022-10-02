@@ -425,7 +425,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     final list = positive ? _layersPos : _layersNeg;
 
     if (z >= list.length) {
-      list.add(_createLayer(list[0], z));
+      _layersPos.add(_createLayer(_layersPos[0], z));
+      _layersNeg.add(_createLayer(_layersNeg[0], z));
     }
 
     return list[z][0];
