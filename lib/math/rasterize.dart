@@ -11,11 +11,26 @@ List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   final srcZero = grid.zero;
   grid.zero = srcZero.cast<num>() + Point(cropMargin, cropMargin);
 
+  final bbox = polygon.boundingBox;
+
+  if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
+    var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
+    pos -= Point(grid.tileWidth / 2, grid.tileHeight / 2);
+    final cellPos = grid.gridToWorldSpace(grid.worldToGridSpaceSnapped(pos));
+    grid.zero = srcZero;
+    return [
+      Polygon(
+        points: grid.tileShape.points
+            .map((p) => (cellPos + p * grid.tileWidth).round())
+            .toList(),
+        positive: polygon.positive,
+      )
+    ];
+  }
+
   final bitmap = <List<bool>>[];
   final points = polygon.points;
   final nvert = points.length;
-  final bbox = polygon.boundingBox;
-
   final gridBbox = Rectangle.fromPoints(
     grid.worldToGridSpace(bbox.topLeft),
     grid.worldToGridSpace(bbox.bottomRight),
@@ -56,7 +71,7 @@ List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   }
 
   final result = squareGridPolyFromBitmap(
-      cropMargin, gridBounds.topLeft, bitmap, grid, polygon.positive);
+      gridBounds.topLeft, bitmap, grid, polygon.positive);
   grid.zero = srcZero;
   return result;
 }
@@ -70,7 +85,6 @@ const orientationLeft = 2;
 const orientationTop = 3;
 
 List<Polygon> squareGridPolyFromBitmap(
-  int cropMargin,
   Point<int> mapZero,
   List<List<bool>> solid,
   TiledGrid grid,
@@ -111,7 +125,7 @@ List<Polygon> squareGridPolyFromBitmap(
         positive: positive,
       ),
       ...squareGridPolyFromBitmap(
-          cropMargin, mapZero, solid, grid, positive, p + Point(2, 0), visited),
+          mapZero, solid, grid, positive, p + Point(2, 0), visited),
     ];
   }
 
@@ -158,8 +172,8 @@ List<Polygon> squareGridPolyFromBitmap(
 
   return [
     Polygon(points: points, positive: positive),
-    ...squareGridPolyFromBitmap(cropMargin, mapZero, solid, grid, positive,
-        initial + Point(1, 0), visited),
+    ...squareGridPolyFromBitmap(
+        mapZero, solid, grid, positive, initial + Point(1, 0), visited),
   ];
 }
 
