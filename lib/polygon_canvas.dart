@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.square(1, size: Point(80, 80));
+  Grid grid = Grid.unclamped();
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -45,6 +45,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
         _cancelActivePath();
       }
       _drawOutline([]);
+      _currentP = null;
     } else {
       _drawActiveBrushCursor();
     }
@@ -54,6 +55,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   void Function() onSettingsChange;
   bool Function(Event ev) acceptStartEvent;
   Point Function(Point p) modifyPoint;
+  double movementScale = 1;
   ToolPath activePath;
   Point<int> _currentP;
   int cropMargin;
@@ -330,6 +332,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
             ),
           );
           maker.isClicked = click;
+          maker.movementScale = movementScale;
 
           activePath = activeTool.createNewPath(maker);
           activePath.handleStart(_currentP);

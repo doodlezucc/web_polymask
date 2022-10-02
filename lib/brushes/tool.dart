@@ -39,6 +39,7 @@ class PolyMaker {
   final void Function() instantiate;
   final void Function(Iterable<Point<int>> points) updatePreview;
   bool isClicked = false;
+  double movementScale = 1;
 
   PolyMaker(this.newPoly, this.instantiate, this.updatePreview);
 }

@@ -24,7 +24,7 @@ class StrokeBrush extends PolygonTool {
   }
 
   double radius = 2;
-  double get radiusScaled => exp(radius) * 5;
+  double get radiusScaled => exp(radius) * 8;
 
   Point<int> _bufferP;
   double _bufferRadius = -1;
@@ -80,10 +80,14 @@ class StrokeBrush extends PolygonTool {
 }
 
 class StrokePath extends ToolPath<StrokeBrush> {
+  int minDistance = 10;
   Point<int> last;
   AngleShape circle;
 
-  StrokePath(PolyMaker maker, StrokeBrush brush) : super(maker, brush);
+  StrokePath(PolyMaker maker, StrokeBrush brush) : super(maker, brush) {
+    final unsquared = (minDistance * maker.movementScale);
+    minDistance = (unsquared * unsquared).round();
+  }
 
   @override
   void handleStart(Point<int> p) {
@@ -96,7 +100,7 @@ class StrokePath extends ToolPath<StrokeBrush> {
   void handleMouseMove(Point<int> p) {
     circle = makeAngleShape(tool._shape, p, tool.radiusScaled);
     maker.updatePreview(tool.drawCursor(p, circle.points));
-    if (p.squaredDistanceTo(last) > 50) {
+    if (p.squaredDistanceTo(last) > minDistance) {
       _update(p);
     }
   }

@@ -28,11 +28,6 @@ class Polygon {
     ]);
   }
 
-  void addPoint(Point<int> point) {
-    points.add(point);
-    invalidateBoundingBox();
-  }
-
   void invalidateBoundingBox() {
     _boxUpToDate = false;
   }

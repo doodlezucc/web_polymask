@@ -5,8 +5,6 @@ import 'package:web_polymask/math/polygon.dart';
 
 import '../math/polymath.dart';
 
-const minDistanceSquared = 10;
-
 class LassoBrush extends PolygonTool {
   static const toolId = 'lasso';
 
@@ -17,10 +15,14 @@ class LassoBrush extends PolygonTool {
 }
 
 class LassoPath extends ToolPath {
+  int minDistance = 4;
   Polygon polygon;
   int _safelySimple = 0;
 
-  LassoPath(PolyMaker maker, PolygonTool brush) : super(maker, brush);
+  LassoPath(PolyMaker maker, PolygonTool brush) : super(maker, brush) {
+    final unsquared = (minDistance * maker.movementScale);
+    minDistance = (unsquared * unsquared).round();
+  }
 
   @override
   void handleStart(Point<int> p) {
@@ -45,7 +47,7 @@ class LassoPath extends ToolPath {
   }
 
   void _addSinglePoint(Point<int> p, {bool updatePreview = false}) {
-    if (p.squaredDistanceTo(polygon.points.last) > minDistanceSquared) {
+    if (p.squaredDistanceTo(polygon.points.last) > minDistance) {
       polygon.points.add(p);
       if (updatePreview) {
         maker.updatePreview(polygon.points);
