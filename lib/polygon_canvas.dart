@@ -238,19 +238,24 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     });
   }
 
-  List<SvgPolygon> _updateRasteredPreview(Iterable<Point<int>> outline) {
+  List<SvgPolygon> _updateRasteredPreview(
+      Iterable<Point<int>> outline, bool pole) {
     for (var active in _activePreview) {
       active.dispose();
     }
 
-    final pole = _previewPositive;
+    pole ??= _previewPositive;
     final parent = pole ? _polyPrevPos : _polyPrevNeg;
     final islands = rasterize(Polygon(points: outline, positive: pole), grid);
 
     return _activePreview = islands.map((i) => SvgPolygon(parent, i)).toList();
   }
 
-  void _drawOutline(Iterable<Point<int>> points, [Point<int> extra]) {
+  void _drawOutline(
+    Iterable<Point<int>> points, {
+    Point<int> extra,
+    bool pole,
+  }) {
     final pointsPlus = [...points, if (extra != null) extra];
     _polyCursor.setAttribute(
       'points',
@@ -260,7 +265,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
       'poly-invalid',
       activePath != null && !activePath.isValid(extra),
     );
-    _updateRasteredPreview(pointsPlus);
+    _updateRasteredPreview(pointsPlus, pole);
   }
 
   void _initCursorControls() {
@@ -317,7 +322,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
             () => addPolygon(activePolygon),
             (points) => _drawOutline(
               points,
-              activePath.maker.isClicked ? _currentP : null,
+              extra: activePath.maker.isClicked ? _currentP : null,
+              pole: pole,
             ),
           );
           maker.isClicked = click;
@@ -362,8 +368,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
           if (moveStreamCtrl != null) {
             moveStreamCtrl.add(_currentP);
           } else {
-            _drawOutline(
-                (activePath?.tool ?? activeTool).drawCursor(_currentP));
+            _drawActiveBrushCursor();
           }
         }
       });
