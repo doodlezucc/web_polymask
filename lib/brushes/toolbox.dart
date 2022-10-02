@@ -28,7 +28,7 @@ mixin PolygonToolbox {
       };
 
   void settingsFromJson(Map<String, dynamic> json) {
-    activeTool = json['active'] ?? activeTool;
+    activeTool = toolMap[json['active']] ?? activeTool;
     for (var e in toolMap.entries) {
       final toolJ = json[e.key];
       if (toolJ != null) {
