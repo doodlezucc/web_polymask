@@ -474,5 +474,6 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void fillCanvas() {
     addPolygon(makeCropRect());
+    _triggerOnChange();
   }
 }
