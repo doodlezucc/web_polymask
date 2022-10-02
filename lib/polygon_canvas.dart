@@ -265,7 +265,9 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void _initCursorControls() {
     window.onMouseWheel.listen((ev) {
-      if (!captureInput || activePath != null) return;
+      if (!captureInput || activePath != null || !activeTool.employMouseWheel) {
+        return;
+      }
 
       if (activeTool.handleMouseWheel(ev.deltaY.sign)) {
         _drawActiveBrushCursor();

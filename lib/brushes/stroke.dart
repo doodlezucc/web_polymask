@@ -30,7 +30,7 @@ class StrokeBrush extends PolygonTool {
   double _bufferRadius = -1;
   List<Point<int>> _bufferOutline;
 
-  StrokeBrush() : super(toolId) {
+  StrokeBrush() : super(toolId, employMouseWheel: true) {
     shape = shapeCircle;
   }
 
