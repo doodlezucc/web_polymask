@@ -16,7 +16,7 @@ List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
     var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
     pos -= Point(grid.tileWidth / 2, grid.tileHeight / 2);
-    final cellPos = grid.gridToWorldSpace(grid.worldToGridSpaceSnapped(pos));
+    final cellPos = grid.gridToWorldSpace(grid.worldToTile(pos));
     grid.zero = srcZero;
     return [
       Polygon(
