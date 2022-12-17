@@ -8,56 +8,63 @@ import 'polymath.dart';
 List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   if (g is! TiledGrid) return [polygon];
 
-  TiledGrid grid = g;
-  final bbox = polygon.boundingBox;
+  final TiledGrid grid = g;
+  final srcZero = grid.zero;
 
-  final tileShapeWorld = grid.tileShape.points
-      .map((p) => (p.cast<double>() * grid.tileWidth))
-      .toList();
+  // Ensure the cropping margin to ALWAYS be undone when returning
+  try {
+    grid.zero = srcZero.cast<num>() + Point(cropMargin, cropMargin);
 
-  Polygon tileToPolygon(Point<double> tileCenter) {
-    return Polygon(
-      positive: polygon.positive,
-      points: tileShapeWorld.map((p) => (tileCenter + p).round()).toList(),
-    );
-  }
+    final bbox = polygon.boundingBox;
 
-  // Return nearest tile if polygon is smaller than tile size
-  if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
-    var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
-    final tileCenter = grid.worldSnapCentered(pos, 1).cast<double>();
-    return [tileToPolygon(tileCenter)];
-  }
+    final tileShapeWorld = grid.tileShape.points
+        .map((p) => (p.cast<double>() * grid.tileWidth))
+        .toList();
 
-  // Efficient rasterization for square grids
-  if (g is SquareGrid) return rasterizeSquare(polygon, g, cropMargin);
+    Polygon tileToPolygon(Point<double> tileCenter) {
+      return Polygon(
+        positive: polygon.positive,
+        points: tileShapeWorld.map((p) => (tileCenter + p).round()).toList(),
+      );
+    }
 
-  // General "rasterization" for all tiled grids
+    // Return nearest tile if polygon is smaller than tile size
+    if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
+      var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
+      final tileCenter = grid.worldSnapCentered(pos, 1).cast<double>();
+      return [tileToPolygon(tileCenter)];
+    }
 
-  final boundsMin = g.worldToGridSpace(bbox.topLeft).floor() - Point(1, 1);
-  final boundsMax = g.worldToGridSpace(bbox.bottomRight).floor() + Point(1, 1);
+    // Efficient rasterization for square grids
+    if (g is SquareGrid) return _rasterizeSquare(polygon, g, cropMargin);
 
-  final result = <Polygon>[];
+    // General "rasterization" for all tiled grids
 
-  for (var x = boundsMin.x; x <= boundsMax.x; x++) {
-    for (var y = boundsMin.y; y <= boundsMax.y; y++) {
-      final tileCenter = grid.tileCenterInWorld(Point(x, y));
-      if (pointInsidePolygon(tileCenter, polygon)) {
-        result.add(tileToPolygon(tileCenter));
+    final boundsMin = g.worldToGridSpace(bbox.topLeft).floor() - Point(1, 1);
+    final boundsMax =
+        g.worldToGridSpace(bbox.bottomRight).floor() + Point(1, 1);
+
+    final result = <Polygon>[];
+
+    for (var x = boundsMin.x; x <= boundsMax.x; x++) {
+      for (var y = boundsMin.y; y <= boundsMax.y; y++) {
+        final tileCenter = grid.tileCenterInWorld(Point(x, y));
+        if (pointInsidePolygon(tileCenter, polygon)) {
+          result.add(tileToPolygon(tileCenter));
+        }
       }
     }
-  }
 
-  return result;
+    return result;
+  } finally {
+    grid.zero = srcZero; // Undo cropping margin
+  }
 }
 
 /// A more efficient (?) approach at rasterizing on square grids.
 /// Instead of returning a polygon for each contained square cell,
-List<Polygon> rasterizeSquare(Polygon polygon, SquareGrid grid,
+List<Polygon> _rasterizeSquare(Polygon polygon, SquareGrid grid,
     [int cropMargin = 0]) {
-  final srcZero = grid.zero;
-  grid.zero = srcZero.cast<num>() + Point(cropMargin, cropMargin);
-
   final bbox = polygon.boundingBox;
 
   final bitmap = <List<bool>>[];
@@ -104,7 +111,6 @@ List<Polygon> rasterizeSquare(Polygon polygon, SquareGrid grid,
 
   final result = squareGridPolyFromBitmap(
       gridBounds.topLeft, bitmap, grid, polygon.positive);
-  grid.zero = srcZero;
   return result;
 }
 

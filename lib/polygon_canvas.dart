@@ -16,7 +16,8 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.unclamped();
+  Grid grid = Grid.hexagonal(1, size: Point(50, 50), horizontal: false);
+  // Grid grid = Grid.square(1, size: Point(50, 50));
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
