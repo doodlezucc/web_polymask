@@ -75,8 +75,8 @@ List<Polygon> _rasterizeSquare(Polygon polygon, SquareGrid grid,
     grid.worldToGridSpace(bbox.bottomRight),
   );
   final gridBounds = Rectangle.fromPoints(
-    gridBbox.topLeft.cast<int>(),
-    gridBbox.bottomRight.cast<int>() + Point(1, 1),
+    gridBbox.topLeft.floor(),
+    gridBbox.bottomRight.floor() + Point(1, 1),
   );
   final worldBoundsTL = grid.gridToWorldSpace(gridBounds.topLeft).round();
 
@@ -109,20 +109,17 @@ List<Polygon> _rasterizeSquare(Polygon polygon, SquareGrid grid,
     }
   }
 
-  final result = squareGridPolyFromBitmap(
+  final result = _squareGridPolyFromBitmap(
       gridBounds.topLeft, bitmap, grid, polygon.positive);
   return result;
 }
-
-String bitmapToText(List<List<bool>> bitmap) =>
-    bitmap.map((row) => row.map((e) => e ? '1' : '0').join('')).join('\n');
 
 const orientationRight = 0;
 const orientationBottom = 1;
 const orientationLeft = 2;
 const orientationTop = 3;
 
-List<Polygon> squareGridPolyFromBitmap(
+List<Polygon> _squareGridPolyFromBitmap(
   Point<int> mapZero,
   List<List<bool>> solid,
   TiledGrid grid,
@@ -132,11 +129,11 @@ List<Polygon> squareGridPolyFromBitmap(
 ]) {
   visited ??= {};
 
-  Point<int> initial = findFirstSolid2d(solid, offset, visited);
+  Point<int> initial = _findFirstSolid2d(solid, offset, visited);
   if (initial == null) return [];
 
   Point<int> scale(Point<int> q) {
-    return grid.gridToWorldSpace(mapZero + q).cast();
+    return grid.gridToWorldSpace(mapZero + q).round();
   }
 
   bool isSolid(Point<int> q) {
@@ -162,7 +159,7 @@ List<Polygon> squareGridPolyFromBitmap(
         Rectangle.fromPoints(scale(p), scale(p + Point(1, 1))),
         positive: positive,
       ),
-      ...squareGridPolyFromBitmap(
+      ..._squareGridPolyFromBitmap(
           mapZero, solid, grid, positive, p + Point(2, 0), visited),
     ];
   }
@@ -210,12 +207,12 @@ List<Polygon> squareGridPolyFromBitmap(
 
   return [
     Polygon(points: points, positive: positive),
-    ...squareGridPolyFromBitmap(
+    ..._squareGridPolyFromBitmap(
         mapZero, solid, grid, positive, initial + Point(1, 0), visited),
   ];
 }
 
-Point<int> findFirstSolid2d(
+Point<int> _findFirstSolid2d(
   List<List<bool>> solid, [
   Point<int> start,
   Set<Point<int>> visited,
