@@ -16,8 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.hexagonal(1, size: Point(50, 50), horizontal: false);
-  // Grid grid = Grid.square(1, size: Point(50, 50));
+  Grid grid = Grid.unclamped();
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -394,13 +393,17 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
         window.onTouchEnd);
   }
 
-  void addPolygon(Polygon polygon) {
+  void addPolygon(Polygon polygon, {bool doRasterize = true}) {
     final polyState = _svg.values.toList();
 
     try {
-      final rasterized = rasterize(polygon, grid, cropMargin);
-      for (var poly in rasterized) {
-        _addPolygon(poly);
+      if (doRasterize) {
+        final rasterized = rasterize(polygon, grid, cropMargin);
+        for (var poly in rasterized) {
+          _addPolygon(poly);
+        }
+      } else {
+        _addPolygon(polygon);
       }
     } catch (e) {
       _fromPolygons(polyState);
@@ -478,7 +481,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void fillCanvas() {
-    addPolygon(makeCropRect());
+    addPolygon(makeCropRect(), doRasterize: false);
     _triggerOnChange();
   }
 }
