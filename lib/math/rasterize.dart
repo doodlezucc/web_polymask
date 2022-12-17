@@ -7,26 +7,58 @@ import 'polymath.dart';
 
 List<Polygon> rasterize(Polygon polygon, Grid g, [int cropMargin = 0]) {
   if (g is! TiledGrid) return [polygon];
+
   TiledGrid grid = g;
+  final bbox = polygon.boundingBox;
+
+  final tileShapeWorld = grid.tileShape.points
+      .map((p) => (p.cast<double>() * grid.tileWidth))
+      .toList();
+
+  Polygon tileToPolygon(Point<double> tileCenter) {
+    return Polygon(
+      positive: polygon.positive,
+      points: tileShapeWorld.map((p) => (tileCenter + p).round()).toList(),
+    );
+  }
+
+  // Return nearest tile if polygon is smaller than tile size
+  if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
+    var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
+    final tileCenter = grid.worldSnapCentered(pos, 1).cast<double>();
+    return [tileToPolygon(tileCenter)];
+  }
+
+  // Efficient rasterization for square grids
+  if (g is SquareGrid) return rasterizeSquare(polygon, g, cropMargin);
+
+  // General "rasterization" for all tiled grids
+
+  final boundsMin = g.worldToGridSpace(bbox.topLeft).floor() - Point(1, 1);
+  final boundsMax = g.worldToGridSpace(bbox.bottomRight).floor() + Point(1, 1);
+
+  final result = <Polygon>[];
+
+  for (var x = boundsMin.x; x <= boundsMax.x; x++) {
+    for (var y = boundsMin.y; y <= boundsMax.y; y++) {
+      final tileCenter = grid.tileCenterInWorld(Point(x, y));
+      if (pointInsidePolygon(tileCenter, polygon)) {
+        result.add(tileToPolygon(tileCenter));
+      }
+    }
+  }
+
+  return result;
+}
+
+/// A more efficient (?) approach at rasterizing on square grids.
+/// Instead of returning a polygon for each contained square cell,
+List<Polygon> rasterizeSquare(Polygon polygon, SquareGrid grid,
+    [int cropMargin = 0]) {
   final srcZero = grid.zero;
   grid.zero = srcZero.cast<num>() + Point(cropMargin, cropMargin);
 
   final bbox = polygon.boundingBox;
-
-  if (bbox.width < grid.tileWidth && bbox.height < grid.tileHeight) {
-    var pos = (bbox.topLeft + bbox.bottomRight).cast<double>() * 0.5;
-    pos -= Point(grid.tileWidth / 2, grid.tileHeight / 2);
-    final cellPos = grid.gridToWorldSpace(grid.worldToTile(pos));
-    grid.zero = srcZero;
-    return [
-      Polygon(
-        points: grid.tileShape.points
-            .map((p) => (cellPos + p * grid.tileWidth).round())
-            .toList(),
-        positive: polygon.positive,
-      )
-    ];
-  }
 
   final bitmap = <List<bool>>[];
   final points = polygon.points;
