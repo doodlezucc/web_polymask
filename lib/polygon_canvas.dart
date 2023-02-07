@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:html';
 import 'dart:svg' as svg;
 
-import 'package:grid/grid.dart';
+import 'package:grid_space/grid_space.dart';
 import 'package:web_polymask/math/rasterize.dart';
 
 import 'binary.dart';
@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.unclamped();
+  Grid grid = Grid.square(1, size: Point(50.5, 50.5));
   PolygonState state = PolygonState({});
   PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};

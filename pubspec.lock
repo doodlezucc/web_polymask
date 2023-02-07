@@ -204,15 +204,15 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.2.0"
-  grid:
+  grid_space:
     dependency: "direct main"
     description:
       path: "."
       ref: HEAD
-      resolved-ref: ff26ac1680dcb2b81e18080e4fe99fdd7280d3b5
-      url: "https://github.com/doodlezucc/dart_grid.git"
+      resolved-ref: "83d68962665e9e1f74815e8e1bae99741bc168f2"
+      url: "https://github.com/doodlezucc/dart_grid_space.git"
     source: git
-    version: "0.1.0"
+    version: "1.0.0"
   http_multi_server:
     dependency: transitive
     description:

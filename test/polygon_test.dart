@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:grid/grid.dart';
+import 'package:grid_space/grid_space.dart';
 import 'package:test/test.dart';
 import 'package:web_polymask/math/polygon_state.dart';
 import 'package:web_polymask/math/polymath.dart';
