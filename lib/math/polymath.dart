@@ -388,7 +388,7 @@ OperationResult _operation(Polygon? a, Polygon? b, bool union) {
 
 extension NullIterableExtension<T> on Iterable<T?> {
   Iterable<T> get withoutNulls =>
-      this.where((element) => element != null) as Iterable<T>;
+      this.where((e) => e != null).map((e) => e as T);
 }
 
 void _dilate(
