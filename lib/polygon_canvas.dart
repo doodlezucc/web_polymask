@@ -16,7 +16,7 @@ import 'math/polymath.dart';
 import 'polygon_canvas_data.dart';
 
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
-  Grid grid = Grid.square(1, size: Point(50.5, 50.5));
+  Grid grid = Grid.unclamped();
   PolygonState state = PolygonState({});
   late PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
@@ -359,7 +359,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
           maker.isClicked = click;
           maker.movementScale = movementScale;
 
-          activePath = activeTool.createNewPath(maker)..handleStart(eventP);
+          activePath = activeTool.createNewPath(maker);
+          activePath!.handleStart(eventP);
 
           moveStreamCtrl = StreamController();
           moveStreamCtrl!.stream.listen((point) async {
