@@ -7,14 +7,14 @@ class RingSearchError<T> {
   RingSearchError(this.ring, this.other, this.errorInRing, this.offset);
 }
 
-RingSearchError<T> ringMismatch<T>(List<T> ring, List<T> other) {
+RingSearchError<T>? ringMismatch<T>(List<T> ring, List<T> other) {
   if (ring.isEmpty) return null;
 
   RingSearchError<T> lastError = RingSearchError(ring, other, 0, 0);
 
   var offset = -1;
   while ((offset = other.indexOf(ring[0], offset + 1)) >= 0) {
-    RingSearchError<T> error;
+    RingSearchError<T>? error;
 
     for (var i = 0; i < ring.length; i++) {
       final item = ring[i];

@@ -6,17 +6,17 @@ class Polygon {
   final bool positive;
 
   bool _boxUpToDate = false;
-  Rectangle<int> _boundingBox;
+  Rectangle<int>? _boundingBox;
   Rectangle<int> get boundingBox {
     if (!_boxUpToDate) {
       _boundingBox = pointsToBoundingBox(points);
       _boxUpToDate = true;
     }
 
-    return _boundingBox;
+    return _boundingBox!;
   }
 
-  Polygon({List<Point<int>> points, this.positive = true})
+  Polygon({List<Point<int>>? points, this.positive = true})
       : points = points ?? [];
 
   static Polygon fromRect(Rectangle<int> rect, {bool positive = true}) {
@@ -51,7 +51,7 @@ class Polygon {
   }
 
   /// Determines if this polygon intersects itself.
-  bool isSimple([Point<int> extraPoint]) {
+  bool isSimple([Point<int>? extraPoint]) {
     if (points.length < 3) return true;
 
     var nvert = points.length;
@@ -112,11 +112,11 @@ class Polygon {
     return false;
   }
 
-  String toSvgData([Point<int> extraPoint]) {
+  String toSvgData([Point<int>? extraPoint]) {
     return pointsToSvg(extraPoint == null ? points : [...points, extraPoint]);
   }
 
-  Polygon copy({bool positive}) =>
+  Polygon copy({bool? positive}) =>
       Polygon(points: points.toList(), positive: positive ?? this.positive);
 
   @override

@@ -7,7 +7,7 @@ class SvgPolygon {
   final Polygon polygon;
   final svg.PolygonElement _el;
 
-  String get currentSvgData => _el.getAttribute('points');
+  String get currentSvgData => _el.getAttribute('points') ?? '';
 
   SvgPolygon(Element parent, this.polygon) : _el = svg.PolygonElement() {
     refreshSvg();
@@ -16,7 +16,7 @@ class SvgPolygon {
 
   SvgPolygon.from(
     Element parent, {
-    List<Point<int>> points,
+    List<Point<int>>? points,
     bool positive = true,
   }) : this(parent, Polygon(points: points, positive: positive));
 
@@ -28,8 +28,8 @@ class SvgPolygon {
     _el.remove();
   }
 
-  void refreshSvg([Point<int> extraPoint]) =>
+  void refreshSvg([Point<int>? extraPoint]) =>
       _el.setAttribute('points', polygon.toSvgData(extraPoint));
 
-  SvgPolygon copy() => SvgPolygon(_el.parent, polygon.copy());
+  SvgPolygon copy() => SvgPolygon(_el.parent!, polygon.copy());
 }

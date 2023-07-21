@@ -18,7 +18,7 @@ import 'polygon_canvas_data.dart';
 class PolygonCanvas with CanvasLoader, PolygonToolbox {
   Grid grid = Grid.square(1, size: Point(50.5, 50.5));
   PolygonState state = PolygonState({});
-  PolygonMerger _merger;
+  late PolygonMerger _merger;
   final _svg = <Polygon, SvgPolygon>{};
   final svg.SvgSvgElement root;
   final svg.SvgElement _polyCursor;
@@ -33,10 +33,10 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     super.activeTool = tool;
 
     if (captureInput) _drawActiveBrushCursor();
-    if (onSettingsChange != null) onSettingsChange();
+    if (onSettingsChange != null) onSettingsChange!();
   }
 
-  bool _captureInput;
+  late bool _captureInput;
   bool get captureInput => _captureInput;
   set captureInput(bool captureInput) {
     _captureInput = captureInput;
@@ -51,13 +51,13 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     }
   }
 
-  void Function() onChange;
-  void Function() onSettingsChange;
-  bool Function(Event ev) acceptStartEvent;
-  Point Function(Point p) modifyPoint;
+  void Function()? onChange;
+  void Function()? onSettingsChange;
+  bool Function(Event ev)? acceptStartEvent;
+  Point Function(Point p)? modifyPoint;
   double movementScale = 1;
-  ToolPath activePath;
-  Point<int> _currentP;
+  ToolPath? activePath;
+  Point<int>? _currentP;
   int cropMargin;
   bool _didChange = false;
   bool _previewPositive = true;
@@ -74,9 +74,9 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     this.acceptStartEvent,
     this.modifyPoint,
     this.cropMargin = 2,
-  })  : _polyCursor = root.querySelector('#polyprev'),
-        _polyPrevPos = root.querySelector('#polyprevpos'),
-        _polyPrevNeg = root.querySelector('#polyprevneg') {
+  })  : _polyCursor = root.querySelector('#polyprev') as svg.SvgElement,
+        _polyPrevPos = root.querySelector('#polyprevpos') as svg.SvgElement,
+        _polyPrevNeg = root.querySelector('#polyprevneg') as svg.SvgElement {
     _merger = PolygonMerger(
       onAdd: _onAdd,
       onRemove: _onRemove,
@@ -89,19 +89,21 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     this.captureInput = captureInput;
   }
 
-  void _onAdd(Polygon p, Polygon parent) {
+  void _onAdd(Polygon p, Polygon? parent) {
     _didChange = true;
     _makeSvgPoly(p);
   }
 
   void _onRemove(Polygon p) {
     _didChange = true;
-    _svg.remove(p).dispose();
+    final svgEquivalent = _svg.remove(p)!;
+    svgEquivalent.dispose();
   }
 
-  void _onUpdateParent(Polygon p, Polygon parent) {
+  void _onUpdateParent(Polygon p, Polygon? parent) {
     _didChange = true;
-    _svg[p].setParent(_getPoleParent(p.positive, _findZ(p)));
+    final svgEquivalent = _svg[p]!;
+    svgEquivalent.setParent(_getPoleParent(p.positive, _findZ(p)));
   }
 
   List<svg.SvgElement> _createLayer(List<svg.SvgElement> tmp, int z) {
@@ -110,27 +112,41 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
     return tmp.map((e) {
       final deep = e.hasAttribute('polydeep');
-      final svg.SvgElement copy = e.clone(deep);
+      final copy = e.clone(deep) as svg.SvgElement;
       final elems = [copy, ...copy.querySelectorAll('*')];
 
       // Append `z` to element id and selectors
       for (var elem in elems) {
         final id = elem.id;
-        if (id != null && id.isNotEmpty) {
+        if (id.isNotEmpty) {
           elem.id = '$id$z';
         }
 
         final attr = elem.attributes[withAttr];
         if (attr != null) {
           final srcV = elem.attributes[attr];
-          final idEnd = regId.firstMatch(srcV).end;
+
+          if (srcV == null) {
+            throw 'Polygon canvas element references attribute "${attr}"'
+                "but doesn't actually have it";
+          }
+
+          final referencedElementId = regId.firstMatch(srcV);
+
+          if (referencedElementId == null) {
+            throw 'Polygon canvas element references unidentifiable selector "${srcV}"';
+          }
+
+          final idEnd = referencedElementId.end;
           elem.attributes[attr] =
               srcV.substring(0, idEnd) + '$z' + srcV.substring(idEnd);
         }
       }
 
-      final index = e.parent.children.indexOf(e);
-      e.parent.children.insert(index + z, copy);
+      final elementParent = e.parent!;
+
+      final index = elementParent.children.indexOf(e);
+      elementParent.children.insert(index + z, copy);
       return copy;
     }).toList();
   }
@@ -153,9 +169,11 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   void fromData(String base64) {
     clear(triggerChangeEvent: false);
     final polygons = canvasFromData(base64);
-    state = PolygonState.assignParents(polygons);
-    _svg.addAll(
-        state.parents.map((key, value) => MapEntry(key, _makeSvgPoly(key))));
+    state = PolygonState.assignParents(polygons.toSet());
+
+    _svg.addAll(state.parents.map(
+      (key, value) => MapEntry(key, _makeSvgPoly(key)),
+    ));
   }
 
   @override
@@ -175,10 +193,10 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   void instantiateActivePolygon({bool includeCursorPoint = true}) {
     if (activePath != null) {
       if (includeCursorPoint && _currentP != null) {
-        if (activePath.maker.isClicked) {
-          activePath.handleMouseClick(_currentP);
+        if (activePath!.maker.isClicked) {
+          activePath!.handleMouseClick(_currentP!);
         } else {
-          activePath.handleMouseMove(_currentP);
+          activePath!.handleMouseMove(_currentP!);
         }
       }
 
@@ -192,10 +210,14 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _sendPathEnd() {
-    if (!activePath.isValid()) {
+    if (activePath == null || _currentP == null) {
+      return;
+    }
+
+    if (!activePath!.isValid()) {
       return _cancelActivePath();
     }
-    activePath.handleEnd(_currentP);
+    activePath!.handleEnd(_currentP!);
     _drawActiveBrushCursor();
     activePath = null;
 
@@ -207,12 +229,12 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void _drawActiveBrushCursor() {
     if (_currentP == null) return;
-    _drawOutline((activePath?.tool ?? activeTool).drawCursor(_currentP));
+    _drawOutline((activePath?.tool ?? activeTool).drawCursor(_currentP!));
   }
 
   void _initKeyListener() {
     window.onKeyDown.listen((ev) {
-      if (captureInput && !_isInput(ev.target)) {
+      if (captureInput && !_isInput(ev.target as Element)) {
         switch (ev.keyCode) {
           case 16: // Shift
             _setPrevPole(false);
@@ -241,7 +263,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   List<SvgPolygon> _updateRasteredPreview(
-      Iterable<Point<int>> outline, bool pole) {
+      List<Point<int>> outline, bool? pole) {
     for (var active in _activePreview) {
       active.dispose();
     }
@@ -258,8 +280,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   void _drawOutline(
     Iterable<Point<int>> points, {
-    Point<int> extra,
-    bool pole,
+    Point<int>? extra,
+    bool? pole,
   }) {
     final pointsPlus = [...points, if (extra != null) extra];
     _polyCursor.setAttribute(
@@ -268,7 +290,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     );
     _polyCursor.classes.toggle(
       'poly-invalid',
-      activePath != null && !activePath.isValid(extra),
+      activePath != null && !activePath!.isValid(extra),
     );
     _updateRasteredPreview(pointsPlus, pole);
   }
@@ -281,11 +303,11 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
       if (activeTool.handleMouseWheel(ev.deltaY.sign)) {
         _drawActiveBrushCursor();
-        if (onSettingsChange != null) onSettingsChange();
+        if (onSettingsChange != null) onSettingsChange!();
       }
     });
 
-    StreamController<Point<int>> moveStreamCtrl;
+    StreamController<Point<int>>? moveStreamCtrl;
 
     void listenToCursorEvents<T extends Event>(
       Point Function(T ev) evToPoint,
@@ -295,19 +317,21 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
     ) {
       Point<int> fixedPoint(T ev) {
         var p = evToPoint(ev);
-        if (modifyPoint != null) p = modifyPoint(p);
+        if (modifyPoint != null) p = modifyPoint!(p);
         return forceIntPoint(p);
       }
 
       startEvent.listen((ev) async {
         if (!captureInput ||
-            (acceptStartEvent != null && !acceptStartEvent(ev)) ||
+            (acceptStartEvent != null && !acceptStartEvent!(ev)) ||
             !ev.path.any((e) => e == root)) return;
 
         ev.preventDefault();
-        document.activeElement.blur();
+        document.activeElement!.blur();
 
-        _currentP = fixedPoint(ev);
+        final eventP = fixedPoint(ev);
+        _currentP = eventP;
+
         var createNew = activePath == null;
         var click = activeTool.employClickEvent;
         var clickedOnce = false;
@@ -321,45 +345,45 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
           var pole = !(ev as dynamic).shiftKey;
           _setPrevPole(pole);
 
-          Polygon activePolygon;
+          late Polygon activePolygon;
+
           final maker = PolyMaker(
             (points) => activePolygon = Polygon(points: points, positive: pole),
             () => addPolygon(activePolygon),
             (points) => _drawOutline(
               points,
-              extra: activePath.maker.isClicked ? _currentP : null,
+              extra: activePath!.maker.isClicked ? _currentP : null,
               pole: pole,
             ),
           );
           maker.isClicked = click;
           maker.movementScale = movementScale;
 
-          activePath = activeTool.createNewPath(maker);
-          activePath.handleStart(_currentP);
+          activePath = activeTool.createNewPath(maker)..handleStart(eventP);
 
           moveStreamCtrl = StreamController();
-          moveStreamCtrl.stream.listen((point) async {
+          moveStreamCtrl!.stream.listen((point) async {
             // Polygon could have been cancelled by user
             if (activePath != null) {
               if (!clickedOnce) {
                 click = false;
                 maker.isClicked = false;
               }
-              activePath.handleMouseMove(point);
+              activePath!.handleMouseMove(point);
             } else {
-              await moveStreamCtrl.close();
+              await moveStreamCtrl?.close();
               moveStreamCtrl = null;
             }
           });
         } else {
           // Add single point to active polygon
-          activePath.handleMouseClick(_currentP);
+          activePath!.handleMouseClick(eventP);
         }
 
         await endEvent.first;
         clickedOnce = true;
         if (!click && moveStreamCtrl != null) {
-          await moveStreamCtrl.close();
+          await moveStreamCtrl!.close();
           moveStreamCtrl = null;
         }
 
@@ -370,9 +394,11 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
       moveEvent.listen((ev) {
         if (captureInput) {
-          _currentP = fixedPoint(ev);
+          final eventP = fixedPoint(ev);
+          _currentP = eventP;
+
           if (moveStreamCtrl != null) {
-            moveStreamCtrl.add(_currentP);
+            moveStreamCtrl!.add(eventP);
           } else {
             _drawActiveBrushCursor();
           }
@@ -387,7 +413,8 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
         window.onMouseUp);
 
     listenToCursorEvents<TouchEvent>(
-        (ev) => ev.targetTouches[0].page - root.getBoundingClientRect().topLeft,
+        (ev) =>
+            ev.targetTouches!.first.page - root.getBoundingClientRect().topLeft,
         root.onTouchStart,
         window.onTouchMove,
         window.onTouchEnd);
@@ -438,7 +465,7 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
 
   int _findZ(Polygon p) {
     int z = 0;
-    Polygon parent = state.parents[p];
+    Polygon? parent = state.parents[p];
     while (parent != null) {
       if (!parent.positive) {
         z++;
@@ -461,13 +488,13 @@ class PolygonCanvas with CanvasLoader, PolygonToolbox {
   }
 
   void _triggerOnChange() {
-    if (onChange != null) onChange();
+    if (onChange != null) onChange!();
   }
 
   /// Returns a positive polygon covering the entire canvas.
   Polygon makeCropRect() {
-    var w = root.parent.clientWidth - cropMargin;
-    var h = root.parent.clientHeight - cropMargin;
+    var w = root.parent!.clientWidth - cropMargin;
+    var h = root.parent!.clientHeight - cropMargin;
     return Polygon(points: [
       Point(cropMargin, cropMargin),
       Point(w, cropMargin),

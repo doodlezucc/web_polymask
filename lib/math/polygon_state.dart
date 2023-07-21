@@ -1,7 +1,7 @@
 import 'polygon.dart';
 
 class PolygonState {
-  final Map<Polygon, Polygon> parents;
+  final Map<Polygon, Polygon?> parents;
 
   PolygonState(this.parents);
 
@@ -12,7 +12,9 @@ class PolygonState {
       for (var other in state) {
         if (other.positive != poly.positive) {
           if (other.contains(poly)) {
-            if (parents[poly] == null || parents[poly].contains(other)) {
+            final polyParent = parents[poly];
+
+            if (polyParent == null || polyParent.contains(other)) {
               parents[poly] = other;
             }
           }
@@ -30,7 +32,7 @@ class PolygonState {
     }
   }
 
-  void _assignParent(HPolygon poly, Polygon parent) {
+  void _assignParent(HPolygon poly, Polygon? parent) {
     parents[poly.polygon] = parent;
     for (var child in poly.children) {
       _assignParent(child, poly.polygon);
@@ -39,11 +41,14 @@ class PolygonState {
 
   bool isValid({bool checkSimplicity = false}) {
     if (!parents.entries.every((e) {
+      final polygon = e.key;
+      final parent = e.value;
+
       // Roots must be positive
-      if (e.value == null) return e.key.positive;
+      if (parent == null) return e.key.positive;
 
       // Parents must be of oppositive pole and fully contain their children.
-      return e.key.positive != e.value.positive && e.value.contains(e.key);
+      return polygon.positive != parent.positive && parent.contains(polygon);
     })) return false;
 
     if (checkSimplicity) {
@@ -62,7 +67,7 @@ class PolygonState {
       if (parent == null) {
         root.add(c.value);
       } else {
-        conv[parent].children.add(c.value);
+        conv[parent]!.children.add(c.value);
       }
     }
 
