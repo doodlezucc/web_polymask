@@ -41,7 +41,7 @@ bool boxOverlap(Polygon a, Polygon b) {
 ///
 /// Based on André LaMothe's algorithm, as
 /// presented on [stackoverflow](https://stackoverflow.com/a/1968345).
-Point<double> segmentIntersect(Point a, Point b, Point u, Point v,
+Point<double>? segmentIntersect(Point a, Point b, Point u, Point v,
     {bool includeEnds = true}) {
   if (!segmentRoughIntersect(a, b, u, v)) return null;
 
@@ -181,9 +181,9 @@ const double _noiseA = 2.8710980267e-05;
 /// When compared to existing polygon clipping algorithms, the
 /// [Greiner-Hormann algorithm](https://dl.acm.org/doi/10.1145/274363.274364)
 /// seems to be very similar to what I've come up with.
-OperationResult _operation(Polygon a, Polygon b, bool union) {
+OperationResult _operation(Polygon? a, Polygon? b, bool union) {
   if (a == null && b == null) return OperationResultAbort(const []);
-  if (identical(a, b) || b == null) return OperationResultAbort([a]);
+  if (identical(a, b) || b == null) return OperationResultAbort([a!]);
   if (a == null) return OperationResultAbort([b]);
 
   if (!a.boundingBox.intersects(b.boundingBox)) {
@@ -357,7 +357,7 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
     var bigBox = pointsToBoundingBox(results.first);
     var firstIsPositive = a.positive;
 
-    var out = <Polygon>[null];
+    var out = <Polygon?>[null];
 
     for (var i = 1; i < results.length; i++) {
       var poly = results[i];
@@ -378,12 +378,17 @@ OperationResult _operation(Polygon a, Polygon b, bool union) {
     out[0] = withoutDoubles(
         Polygon(points: results.first, positive: firstIsPositive));
 
-    return OperationResultTransform(out..removeWhere((p) => p == null));
+    return OperationResultTransform(out.withoutNulls);
   } else {
     return OperationResultTransform(results
         .map((ps) => withoutDoubles(Polygon(points: ps, positive: a.positive)))
-        .where((p) => p != null));
+        .withoutNulls);
   }
+}
+
+extension NullIterableExtension<T> on Iterable<T?> {
+  Iterable<T> get withoutNulls =>
+      this.where((e) => e != null).map((e) => e as T);
 }
 
 void _dilate(
@@ -405,9 +410,9 @@ void _dilate(
 }
 
 abstract class OperationResult {
-  final Iterable<Polygon> output;
+  final List<Polygon> output;
 
-  OperationResult(this.output);
+  OperationResult(Iterable<Polygon> output) : this.output = output.toList();
 
   String get name;
 
@@ -432,7 +437,8 @@ class OperationResultNoOverlap extends OperationResult {
 class OperationResultContain extends OperationResultNoOverlap {
   final Polygon container;
 
-  OperationResultContain(List<Polygon> result, this.container) : super(result);
+  OperationResultContain(Iterable<Polygon> result, this.container)
+      : super(result);
 
   @override
   String get name =>
@@ -487,7 +493,7 @@ List<List<Point<int>>> _splitSelfIntersections(List<Point<int>> points) {
 
 /// Removes every point preceded by another point with the same coordinates
 /// and forces `polygon`s list of points not to repeat.
-Polygon withoutDoubles(Polygon polygon) {
+Polygon? withoutDoubles(Polygon polygon) {
   final points = removeDoubles(polygon.points);
   if (points == null) return null;
 
@@ -496,7 +502,7 @@ Polygon withoutDoubles(Polygon polygon) {
 
 /// Returns a copy of `points` where every point preceded by another point with
 /// the same coordinates is removed.
-List<Point<int>> removeDoubles(List<Point<int>> points) {
+List<Point<int>>? removeDoubles(List<Point<int>> points) {
   var first = points.first;
   var second = points.elementAt(1);
   var previous = first;
@@ -572,16 +578,16 @@ Polygon upscale(Polygon poly, int m) {
 }
 
 class PolygonMerger {
-  Map<Polygon, Polygon> _parents;
-  void Function(Polygon polygon) onRemove;
-  void Function(Polygon polygon, Polygon parent) onAdd;
-  void Function(Polygon polygon, Polygon parent) onUpdateParent;
+  late Map<Polygon, Polygon?> _parents;
+  void Function(Polygon polygon)? onRemove;
+  void Function(Polygon polygon, Polygon? parent)? onAdd;
+  void Function(Polygon polygon, Polygon? parent)? onUpdateParent;
 
   PolygonMerger({this.onAdd, this.onRemove, this.onUpdateParent});
 
   void _remove(Polygon p) {
     _parents.remove(p);
-    if (onRemove != null) onRemove(p);
+    if (onRemove != null) onRemove!(p);
   }
 
   void _removeHPoly(HPolygon hp) {
@@ -591,14 +597,14 @@ class PolygonMerger {
     _remove(hp.polygon);
   }
 
-  void _setParent(Polygon p, Polygon parent) {
+  void _setParent(Polygon p, Polygon? parent) {
     _parents[p] = parent;
-    if (onUpdateParent != null) onUpdateParent(p, parent);
+    if (onUpdateParent != null) onUpdateParent!(p, parent);
   }
 
-  void _add(Polygon p, Polygon parent) {
+  void _add(Polygon p, Polygon? parent) {
     _parents[p] = parent;
-    if (onAdd != null) onAdd(p, parent);
+    if (onAdd != null) onAdd!(p, parent);
   }
 
   List<Polygon> _findChildren(Polygon p) {
@@ -690,8 +696,8 @@ class PolygonMerger {
 
     bool samePole = polygon.positive; // Hierarchy roots must be positive
     Map<Polygon, List<Polygon>> parentSame = {};
-    HPolygon parentDiff;
-    Polygon lastContainer;
+    HPolygon? parentDiff;
+    Polygon? lastContainer;
     bool makeBridge = false;
     bool isectAny = false;
     Polygon layerPoly;
@@ -701,7 +707,7 @@ class PolygonMerger {
       Set<HPolygon> nextLayer = {};
       Set<HPolygon> mergeIntoParent = {};
       final nParentSame = <Polygon, List<Polygon>>{};
-      Polygon parent;
+      Polygon? parent;
       Set<Polygon> nHoles = {};
 
       for (var other in layer) {
@@ -752,7 +758,7 @@ class PolygonMerger {
           nextLayer.addAll(other.children);
           if (samePole) {
             if (makeBridge) {
-              final parents = parentSame[other.polygon] ?? [parent];
+              final parents = parentSame[other.polygon] ?? [parent!];
               _makeBridge(other, parents, parentSame, nParentSame);
 
               parent = null;
@@ -813,7 +819,7 @@ class PolygonMerger {
             for (var remove in holeReplacements.keys) {
               var add = holeReplacements[remove];
               nHoles.remove(remove);
-              nHoles.addAll(add);
+              nHoles.addAll(add ?? const []);
             }
           }
         }

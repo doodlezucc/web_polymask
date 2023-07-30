@@ -31,7 +31,7 @@ final polygonRegex = RegExp(r'\((\w+), (.*?)\)');
 Set<Polygon> parseState(String s) {
   return polygonRegex
       .allMatches(s)
-      .map((m) => Polygon(positive: m[1] == 'positive', points: parse(m[2])))
+      .map((m) => Polygon(positive: m[1] == 'positive', points: parse(m[2]!)))
       .toSet();
 }
 
@@ -122,8 +122,10 @@ abstract class HierarchyMatcher<T, M> extends Matcher {
     String out = '';
     String d = '  ' * depth;
 
-    if (miscount[siblings] != null) {
-      int actualCount = miscount[siblings];
+    final siblingMiscount = miscount[siblings];
+
+    if (siblingMiscount != null) {
+      int actualCount = siblingMiscount;
       final children = actualCount == 1 ? 'CHILD' : 'CHILDREN';
       out += '\n${d}HAS $actualCount $children INSTEAD OF ${siblings.length}:';
     }
@@ -226,10 +228,10 @@ class StateMatcher extends HierarchyMatcher<HPolygon, Polygon> {
 }
 
 Matcher polygonMatchInstance(
-  Polygon expected, {
+  Polygon? expected, {
   bool requireSimple = true,
   bool checkOrder = true,
-  Map map,
+  Map? map,
 }) {
   if (expected == null) return isNull;
   forceClockwise(expected);
@@ -246,8 +248,8 @@ Matcher polygonMatch(
   List<Point<int>> points, {
   bool requireSimple = true,
   bool checkOrder = true,
-  bool positive,
-  Map map,
+  bool? positive,
+  Map? map,
 }) {
   var matcher = TypeMatcher<Polygon>();
 
@@ -267,7 +269,7 @@ Matcher polygonMatch(
 }
 
 class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
-  Matcher _matcher;
+  late Matcher _matcher;
   final Iterable<Polygon> expected;
   final Map errorMap = {};
 
@@ -335,22 +337,22 @@ class PolygonOperationMatcher extends TypeMatcher<Iterable<Polygon>> {
   }
 }
 
-Matcher ringMatch<S>(List<S> ring, {Map map}) =>
+Matcher ringMatch<S>(List<S> ring, {Map? map}) =>
     allOf(hasLength(ring.length), _RingMatcher<S>(ring, map));
 
 class _RingMatcher<S> extends TypeMatcher<List<S>> {
-  final Map map;
+  final Map? map;
   final List<S> ring;
 
   _RingMatcher(this.ring, this.map);
 
   @override
-  bool matches(Object other, Map matchState) {
+  bool matches(Object? other, Map matchState) {
     if (other is List<S>) {
       final error = ringMismatch(ring, other);
       if (error == null) return true;
 
-      if (map != null) map[other] = error;
+      if (map != null) map![other] = error;
     }
 
     return false;

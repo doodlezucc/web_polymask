@@ -16,7 +16,7 @@ class LassoBrush extends PolygonTool {
 
 class LassoPath extends ToolPath {
   int minDistance = 4;
-  Polygon polygon;
+  late Polygon _polygon;
   int _safelySimple = 0;
 
   LassoPath(PolyMaker maker, PolygonTool brush) : super(maker, brush) {
@@ -26,12 +26,12 @@ class LassoPath extends ToolPath {
 
   @override
   void handleStart(Point<int> p) {
-    polygon = maker.newPoly([p]);
+    _polygon = maker.newPoly([p]);
   }
 
   @override
   void handleMouseMove(Point<int> p) {
-    if (maker.isClicked) return maker.updatePreview([...polygon.points, p]);
+    if (maker.isClicked) return maker.updatePreview([..._polygon.points, p]);
 
     _addSinglePoint(p, updatePreview: true);
   }
@@ -47,29 +47,29 @@ class LassoPath extends ToolPath {
   }
 
   void _addSinglePoint(Point<int> p, {bool updatePreview = false}) {
-    if (p.squaredDistanceTo(polygon.points.last) > minDistance) {
-      polygon.points.add(p);
+    if (p.squaredDistanceTo(_polygon.points.last) > minDistance) {
+      _polygon.points.add(p);
       if (updatePreview) {
-        maker.updatePreview(polygon.points);
+        maker.updatePreview(_polygon.points);
       }
     }
   }
 
   @override
-  bool isValid([Point<int> extraPoint]) =>
+  bool isValid([Point<int>? extraPoint]) =>
       isSimple(maker.isClicked ? extraPoint : null);
 
   /// Returns true if this polygon (+ `extraPoint`) doesn't intersect itself.
-  bool isSimple([Point<int> extraPoint]) {
-    if (polygon.points.length < 3) return true;
+  bool isSimple([Point<int>? extraPoint]) {
+    if (_polygon.points.length < 3) return true;
 
-    var nvert = polygon.points.length;
+    var nvert = _polygon.points.length;
 
     if (extraPoint != null) nvert++;
 
     Point<int> elem(int i) => (extraPoint != null && i % nvert == nvert - 1)
         ? extraPoint
-        : polygon.points[i % nvert];
+        : _polygon.points[i % nvert];
 
     for (var i = _safelySimple; i < nvert; i++) {
       var u = elem(i);

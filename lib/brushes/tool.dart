@@ -15,7 +15,7 @@ abstract class PolygonTool {
 
   ToolPath createNewPath(PolyMaker maker);
   List<Point<int>> drawCursor(Point<int> p) => [p];
-  bool handleMouseWheel(int amount) => false;
+  bool handleMouseWheel(num amount) => false;
 
   Map<String, dynamic> toJson() => const {};
   void fromJson(Map<String, dynamic> json) {}
@@ -31,7 +31,7 @@ abstract class ToolPath<T extends PolygonTool> {
   void handleMouseMove(Point<int> p);
   void handleMouseClick(Point<int> p) {}
   void handleEnd(Point<int> p) {}
-  bool isValid([Point<int> extra]) => true;
+  bool isValid([Point<int>? extra]) => true;
 }
 
 class PolyMaker {

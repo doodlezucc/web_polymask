@@ -124,13 +124,17 @@ List<Polygon> _squareGridPolyFromBitmap(
   List<List<bool>> solid,
   TiledGrid grid,
   bool positive, [
-  Point<int> offset,
-  Set<Point<int>> visited,
+  Point<int>? offset,
+  Set<Point<int>>? visited,
 ]) {
   visited ??= {};
 
-  Point<int> initial = _findFirstSolid2d(solid, offset, visited);
-  if (initial == null) return [];
+  late Point<int> initial;
+  try {
+    initial = _findFirstSolid2d(solid, offset, visited);
+  } catch (err) {
+    return [];
+  }
 
   Point<int> scale(Point<int> q) {
     return grid.gridToWorldSpace(mapZero + q).round();
@@ -214,8 +218,8 @@ List<Polygon> _squareGridPolyFromBitmap(
 
 Point<int> _findFirstSolid2d(
   List<List<bool>> solid, [
-  Point<int> start,
-  Set<Point<int>> visited,
+  Point<int>? start,
+  Set<Point<int>>? visited,
 ]) {
   bool inside = start != null;
   int rowStart = start?.x ?? 0;
@@ -224,7 +228,7 @@ Point<int> _findFirstSolid2d(
       if (!inside) {
         if (solid[y][x]) {
           final point = Point(x, y);
-          if (!visited.contains(point)) {
+          if (visited != null && !visited.contains(point)) {
             return point;
           } else {
             inside = true;
@@ -237,5 +241,5 @@ Point<int> _findFirstSolid2d(
     rowStart = 0;
   }
 
-  return null;
+  throw 'Unable to find any solid cell in grid';
 }

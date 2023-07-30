@@ -15,8 +15,8 @@ final unitSquare = AngleShape(_squarePoints, _squareAngles);
 class StrokeBrush extends PolygonTool {
   static const toolId = 'stroke';
 
-  AngleShape _shape;
-  String _shapeId;
+  late AngleShape _shape;
+  late String _shapeId;
   String get shape => _shapeId;
   set shape(String shapeId) {
     _shapeId = shapeId;
@@ -26,9 +26,9 @@ class StrokeBrush extends PolygonTool {
   double radius = 2;
   double get radiusScaled => exp(radius) * 8;
 
-  Point<int> _bufferP;
+  Point<int>? _bufferP;
   double _bufferRadius = -1;
-  List<Point<int>> _bufferOutline;
+  List<Point<int>>? _bufferOutline;
 
   StrokeBrush() : super(toolId, employMouseWheel: true) {
     shape = shapeCircle;
@@ -38,8 +38,8 @@ class StrokeBrush extends PolygonTool {
   ToolPath createNewPath(PolyMaker maker) => StrokePath(maker, this);
 
   @override
-  List<Point<int>> drawCursor(Point<int> p, [List<Point<int>> override]) {
-    if (p == _bufferP && radius == _bufferRadius) return _bufferOutline;
+  List<Point<int>> drawCursor(Point<int> p, [List<Point<int>>? override]) {
+    if (p == _bufferP && radius == _bufferRadius) return _bufferOutline!;
 
     _bufferP = p;
     _bufferRadius = radius;
@@ -48,7 +48,7 @@ class StrokeBrush extends PolygonTool {
   }
 
   @override
-  bool handleMouseWheel(int amount) {
+  bool handleMouseWheel(num amount) {
     final nRadius = radius - 0.2 * amount;
     if (nRadius <= 0) return false;
 
@@ -63,7 +63,8 @@ class StrokeBrush extends PolygonTool {
       case shapeSquare:
         return unitSquare;
     }
-    return null;
+
+    throw 'Unknown shape ${shapeId}';
   }
 
   @override
@@ -81,8 +82,8 @@ class StrokeBrush extends PolygonTool {
 
 class StrokePath extends ToolPath<StrokeBrush> {
   int minDistance = 10;
-  Point<int> last;
-  AngleShape circle;
+  Point<int>? last;
+  late AngleShape<int> circle;
 
   StrokePath(PolyMaker maker, StrokeBrush brush) : super(maker, brush) {
     final unsquared = (minDistance * maker.movementScale);
@@ -100,7 +101,8 @@ class StrokePath extends ToolPath<StrokeBrush> {
   void handleMouseMove(Point<int> p) {
     circle = makeAngleShape(tool._shape, p, tool.radiusScaled);
     maker.updatePreview(tool.drawCursor(p, circle.points));
-    if (p.squaredDistanceTo(last) > minDistance) {
+
+    if (p.squaredDistanceTo(last!) > minDistance) {
       _update(p);
     }
   }

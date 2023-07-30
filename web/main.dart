@@ -1,11 +1,12 @@
 import 'dart:html';
 import 'dart:js_util';
+import 'dart:svg';
 
 import 'package:web_polymask/polygon_canvas.dart';
 
 void main() {
   var canvas = PolygonCanvas(
-    querySelector('svg'),
+    querySelector('svg') as SvgSvgElement,
     acceptStartEvent: (ev) => (ev is MouseEvent) && ev.button == 0,
     cropMargin: 40,
   );
@@ -39,13 +40,13 @@ void main() {
 }
 
 void _resizeMask() async {
-  var clientRect = querySelector('svg').getBoundingClientRect();
+  var clientRect = querySelector('svg')!.getBoundingClientRect();
 
   if (clientRect.width == 0) {
     return Future.delayed(Duration(milliseconds: 20), _resizeMask);
   }
 
-  querySelector('#polynegmask rect').attributes.addAll({
+  querySelector('#polynegmask rect')!.attributes.addAll({
     'width': '${clientRect.width}',
     'height': '${clientRect.height}',
   });
